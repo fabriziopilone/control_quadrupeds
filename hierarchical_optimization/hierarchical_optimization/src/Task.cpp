@@ -1,7 +1,9 @@
-#include "hierarchical_optimization\Task.hpp"
+#include "hierarchical_optimization/Task.hpp"
 #include <Eigen/Dense>
+#include "eigen-qp.hpp"
 
 using namespace Eigen;
+using namespace EigenQP;
 
 /* 
 A task T is a set of linear equality and/or inequality constraints on x:
@@ -91,5 +93,7 @@ Eigen::VectorXd Task::solve_QP(){
  Eigen::VectorXd f_hat(row_D);
  f_hat = this->f;
 
- // ALGLIB for solving QP problem???
+// SOLVING QP PROBLEM WITH  EIGEN-QP
+    Eigen::VectorXd x_opt(row_A);
+    quadprog(A, b, D, f, x_opt);
 }
