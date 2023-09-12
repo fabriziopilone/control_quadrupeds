@@ -71,5 +71,25 @@ Eigen::VectorXd Task::solve_QP(){
     c^hat = [-A'b]
             [  0 ]
     */
-   Eigen::VectorXd c_hat(row_A);
+   Eigen::VectorXd c_hat(row_A+row_D);
+   c_hat.head(row_A) = -this->A.transpose()*this->b;
+   c_hat.tail(row_D) = VectorXd::Zero(row_D);
+
+   /*
+   D^hat = [D, -I;]
+           [0, -I ]
+   */
+  Eigen::MatrixXd D_hat(row_D+row_D, row_A+row_D);
+  D_hat.topLeftCorner(row_D, row_A) = this->D;
+  D_hat.topRightCorner(row_D, row_D) = -MatrixXd::Identity(row_D, row_D);
+  D_hat.bottomLeftCorner(row_D, row_A) = MatrixXd::Zero(row_D, row_A);
+  D_hat.bottomRightCorner(row_D, row_D) = -MatrixXd::Identity(row_D, row_D);
+
+  /*
+  f^hat = f
+  */
+ Eigen::VectorXd f_hat(row_D);
+ f_hat = this->f;
+
+ // ALGLIB for solving QP problem???
 }

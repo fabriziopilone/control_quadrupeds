@@ -46,3 +46,4 @@ Iteratively
 Z_2 = Null(A_1)*Null( A_2*Null(A_1) ) = Z_1 * Null( A_2 * Z_1 )
 
 */
+
