@@ -1,5 +1,5 @@
-//#include "hierarchical_optimization/Task.hpp"
-# include "/home/fabrizio/Github/control_quadrupeds/hierarchical_optimization/hierarchical_optimization/include/hierarchical_optimization/Task.hpp"
+#include "hierarchical_optimization/Task.hpp"
+//#include "/home/fabrizio/Github/control_quadrupeds/hierarchical_optimization/hierarchical_optimization/include/hierarchical_optimization/Task.hpp"
 #include <Eigen/Dense>
 #include "eigen-qp.hpp"
 
