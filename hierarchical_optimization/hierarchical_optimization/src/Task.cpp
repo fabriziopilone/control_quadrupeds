@@ -1,4 +1,5 @@
 #include "hierarchical_optimization/Task.hpp"
+//# include "/home/fabrizio/Github/control_quadrupeds/hierarchical_optimization/hierarchical_optimization/include/hierarchical_optimization/Task.hpp"
 #include <Eigen/Dense>
 #include "eigen-qp.hpp"
 
@@ -35,11 +36,14 @@ c = [ -A' * b;]
 D^hat = [D,  -I; ]
         [0,  -I  ]
 
-f^hat = f
+f^hat = [f]
+        [0]
 
-xi in R^(n+m), H in R^([n+m]*[n+m]), c in R^(n+m), D_hat in R^([m+m]*[n+m]), f_hat in R^(m)
+xi in R^(n+m), H in R^([n+m]*[n+m]), c in R^(n+m), D_hat in R^([m+m]*[n+m]), f_hat in R^(m+m)
 
 */
+
+namespace task{
 
 Task::Task(Eigen::MatrixXd A, Eigen::VectorXd, Eigen::MatrixXd D, Eigen::VectorXd f){
     this->A = A;
@@ -88,12 +92,14 @@ Eigen::VectorXd Task::solve_QP(){
   D_hat.bottomRightCorner(row_D, row_D) = -MatrixXd::Identity(row_D, row_D);
 
   /*
-  f^hat = f
+  f^hat = [f]
+          [0]
   */
  Eigen::VectorXd f_hat(row_D);
- f_hat = this->f;
+ f_hat = this->f, VectorXd::Zero(row_D);
 
 // SOLVING QP PROBLEM WITH  EIGEN-QP
     Eigen::VectorXd x_opt(row_A);
     quadprog(A, b, D, f, x_opt);
+}
 }

@@ -1,5 +1,7 @@
 #include <Eigen/Dense>
 
+namespace task{
+    
 class Task{
 
     public:
@@ -24,6 +26,12 @@ class Task{
         void set_f(Eigen::VectorXd f){
             this->f = f;
         }
+        void set_task(Eigen::MatrixXd A, Eigen::VectorXd b, Eigen::MatrixXd D, Eigen::VectorXd f){
+            this->A = A;
+            this->b = b;
+            this->D = D;
+            this->f = f;
+        }
 
     private:
         Eigen::MatrixXd A;
@@ -31,3 +39,4 @@ class Task{
         Eigen::MatrixXd D;
         Eigen::VectorXd f;
 };
+}
