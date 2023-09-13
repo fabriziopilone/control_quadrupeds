@@ -12,7 +12,6 @@ find_package(Eigen3 REQUIRED)
 add_library(${PROJECT_NAME} SHARED src/Task.cpp)
 
 ament_target_dependencies(${PROJECT_NAME} Eigen3)
-ament_target_dependencies
 
 #target_link_libraries(hierarchical_optimization)
 #include_directories(include)
