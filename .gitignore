@@ -1,7 +1,7 @@
-.vscode/
-.cache/
+#.vscode/
+#.cache/
 
-test_pkg/
+#test_pkg/
 
 build/
 install/
