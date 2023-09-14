@@ -48,6 +48,7 @@ Z_2 = Null(A_1)*Null( A_2*Null(A_1) ) = Z_1 * Null( A_2 * Z_1 )
 */
 
 #include "Task.cpp"
+#include "quadprog/quadprog.hpp"
 using namespace task;
 using namespace Eigen;
 
@@ -155,7 +156,8 @@ Eigen::VectorXd solve_ho(Task task_vec[], int size){
         /*
         SOLVING QP PROBLEM
         */
-       quadprog(H, c, D_hat, f_hat, xi_opt);
+       D_hat = -D_hat;
+       const int sol = solve_quadprog(H, c, D_hat, f_hat, xi_opt);
 
        z_opt = xi_opt(seq(0, rows_A));
        x_opt = x_opt + Z_p*z_opt;

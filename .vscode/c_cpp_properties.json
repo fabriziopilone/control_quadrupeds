@@ -4,7 +4,8 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "/usr/include/eigen3"
+                "/usr/include/eigen3",
+                "/home/fabrizio/Scaricati/eigen-3.4.0"
             ],
             "defines": [],
             "cStandard": "c17",

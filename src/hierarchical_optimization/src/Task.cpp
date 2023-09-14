@@ -1,10 +1,8 @@
 #include "hierarchical_optimization/Task.hpp"
-//#include "/home/fabrizio/Github/control_quadrupeds/hierarchical_optimization/hierarchical_optimization/include/hierarchical_optimization/Task.hpp"
 #include <Eigen/Dense>
-#include "eigen-qp.hpp"
+#include "quadprog/quadprog.hpp"
 
 using namespace Eigen;
-using namespace EigenQP;
 
 /* 
 A task T is a set of linear equality and/or inequality constraints on x:
@@ -53,10 +51,10 @@ Task::Task(Eigen::MatrixXd A, Eigen::VectorXd, Eigen::MatrixXd D, Eigen::VectorX
 }
 
 Task::Task(){
-    this->A = MatrixXd::Zero();
-    this->b = VectorXd::Zero();
-    this->D = MatrixXd::Zero();
-    this->f = VectorXd::Zero();
+    this->A = MatrixXd::Zero(1,1);
+    this->b = VectorXd::Zero(1);
+    this->D = MatrixXd::Zero(1,1);
+    this->f = VectorXd::Zero(1);
 }
 
 Eigen::VectorXd Task::solve_QP(){
@@ -67,7 +65,7 @@ Eigen::VectorXd Task::solve_QP(){
     H = [A'A 0]
         [ 0  I]
     */
-   Eigen::MatrixXd H(row_A + row_D);
+   Eigen::MatrixXd H(row_A + row_D, row_A+row_D);
    H.topLeftCorner(row_A, row_A) = A.transpose()*A;
    H.topRightCorner(row_A, row_D) = MatrixXd::Zero(row_A, row_D);
    H.bottomLeftCorner(row_D, row_A) = MatrixXd::Zero(row_D, row_A);
@@ -100,6 +98,8 @@ Eigen::VectorXd Task::solve_QP(){
 
 // SOLVING QP PROBLEM WITH  EIGEN-QP
     Eigen::VectorXd x_opt(row_A);
-    quadprog(A, b, D, f, x_opt);
+    D = -D; // solver solves for >=0
+    const int sol = solve_quadprog(A, b, D, f, x_opt);
+    return x_opt;
 }
 }

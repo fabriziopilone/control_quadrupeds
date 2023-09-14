@@ -1,0 +1,8 @@
+.vscode/
+.cache/
+
+test_pkg/
+
+build/
+install/
+log/
