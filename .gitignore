@@ -3,6 +3,6 @@
 
 #test_pkg/
 
-build/
-install/
-log/
+#build/
+#install/
+#log/
