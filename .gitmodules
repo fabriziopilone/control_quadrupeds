@@ -1,0 +1,3 @@
+[submodule "quadprog"]
+	path = quadprog
+	url = https://github.com/ddebenedittis/quadprog
