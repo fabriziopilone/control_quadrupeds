@@ -10,6 +10,8 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <build_depend>eigen</build_depend>
+  <build_depend>quadprog</build_depend>
+  
   <build_export_depend>eigen</build_export_depend> <!-- If your package uses Eigen3 in public headers, then also add these tags so downstream packages also depend on this package and Eigen3. -->
 
   <test_depend>ament_lint_auto</test_depend>

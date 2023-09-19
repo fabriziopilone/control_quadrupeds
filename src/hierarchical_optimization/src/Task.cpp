@@ -43,7 +43,7 @@ xi in R^(n+m), H in R^([n+m]*[n+m]), c in R^(n+m), D_hat in R^([m+m]*[n+m]), f_h
 
 namespace task{
 
-Task::Task(Eigen::MatrixXd A, Eigen::VectorXd, Eigen::MatrixXd D, Eigen::VectorXd f){
+Task::Task(Eigen::MatrixXd A, Eigen::VectorXd b, Eigen::MatrixXd D, Eigen::VectorXd f){
     this->A = A;
     this->b = b;
     this->D = D;
@@ -98,8 +98,12 @@ Eigen::VectorXd Task::solve_QP(){
 
 // SOLVING QP PROBLEM WITH  EIGEN-QP
     Eigen::VectorXd x_opt(row_A);
-    D = -D; // solver solves for >=0
-    const int sol = solve_quadprog(A, b, D, f, x_opt);
+    c_hat = -c_hat;
+    D_hat = -D_hat; // solver solves for >=0
+    f_hat = -f_hat;
+    const int sol = solve_quadprog(H, c_hat, D_hat, f_hat, x_opt);
+    if (sol == 1)
+        throw std::invalid_argument("Non feasible problem");
     return x_opt;
 }
 }

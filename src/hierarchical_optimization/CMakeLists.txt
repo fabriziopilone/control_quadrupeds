@@ -41,6 +41,14 @@ install(
     RUNTIME DESTINATION bin
 )
 
+
+add_executable(test1 test/test1.cpp)
+target_include_directories(${PROJECT_NAME} PUBLIC
+  ${EIGEN3_INCLUDE_DIR}
+)
+target_link_libraries(test1 PUBLIC ${PROJECT_NAME})
+# ament_target_dependencies(test1 ${PROJECT_NAME})
+
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
