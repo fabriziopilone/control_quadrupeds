@@ -1,6 +1,7 @@
 #include "hierarchical_optimization/Task.hpp"
 #include <Eigen/Dense>
 #include "quadprog/quadprog.hpp"
+#include <iostream>
 
 using namespace Eigen;
 
@@ -44,6 +45,12 @@ xi in R^(n+m), H in R^([n+m]*[n+m]), c in R^(n+m), D_hat in R^([m+m]*[n+m]), f_h
 namespace task{
 
 Task::Task(Eigen::MatrixXd A, Eigen::VectorXd b, Eigen::MatrixXd D, Eigen::VectorXd f){
+    if (b.size() != A.rows())
+        throw std::invalid_argument("Il numero di righe di b deve essere uguale al numero di righe di A");
+    if (f.size() != D.rows())
+        throw std::invalid_argument("Il numero di righe di f deve essere uguale al numero di righe di D");
+    if (D.cols() != A.cols())
+        throw std::invalid_argument("Il numero di colonne di D deve essere uguale al numero di colonne di A");
     this->A = A;
     this->b = b;
     this->D = D;
@@ -58,49 +65,88 @@ Task::Task(){
 }
 
 Eigen::VectorXd Task::solve_QP(){
-    int row_A = this->A.rows();
+    int col_A = this->A.cols();
     int row_D = this->D.rows();
+
+    std::cout <<"this->A: \n" << this->A << "\n";
+    std::cout <<"this->b: \n" << this->b << "\n";
+    std::cout <<"this->D: \n" << this->D << "\n";
+    std::cout <<"this->f: \n" << this->f << "\n";
 
     /*
     H = [A'A 0]
         [ 0  I]
     */
-   Eigen::MatrixXd H(row_A + row_D, row_A+row_D);
-   H.topLeftCorner(row_A, row_A) = A.transpose()*A;
-   H.topRightCorner(row_A, row_D) = MatrixXd::Zero(row_A, row_D);
-   H.bottomLeftCorner(row_D, row_A) = MatrixXd::Zero(row_D, row_A);
+   Eigen::MatrixXd H(col_A + row_D, col_A+row_D);
+   H.topLeftCorner(col_A, col_A) = A.transpose()*A;
+   H.topRightCorner(col_A, row_D) = MatrixXd::Zero(col_A, row_D);
+   H.bottomLeftCorner(row_D, col_A) = MatrixXd::Zero(row_D, col_A);
    H.bottomRightCorner(row_D, row_D) = MatrixXd::Identity(row_D, row_D);
+   std::cout << "H: " << H <<"\n";
 
     /*
     c^hat = [-A'b]
             [  0 ]
     */
-   Eigen::VectorXd c_hat(row_A+row_D);
-   c_hat.head(row_A) = -this->A.transpose()*this->b;
+   Eigen::VectorXd c_hat(col_A+row_D);
+   c_hat.head(col_A) = -this->A.transpose()*this->b;
    c_hat.tail(row_D) = VectorXd::Zero(row_D);
+   std::cout << "c_hat: " <<c_hat <<"\n";
 
    /*
    D^hat = [D, -I;]
            [0, -I ]
    */
-  Eigen::MatrixXd D_hat(row_D+row_D, row_A+row_D);
-  D_hat.topLeftCorner(row_D, row_A) = this->D;
+  Eigen::MatrixXd D_hat(row_D+row_D, col_A+row_D);
+  D_hat.topLeftCorner(row_D, col_A) = this->D;
   D_hat.topRightCorner(row_D, row_D) = -MatrixXd::Identity(row_D, row_D);
-  D_hat.bottomLeftCorner(row_D, row_A) = MatrixXd::Zero(row_D, row_A);
+  //D_hat.topRightCorner(row_D, row_D) = MatrixXd::Zero(row_D, row_D);
+  D_hat.bottomLeftCorner(row_D, col_A) = MatrixXd::Zero(row_D, col_A);
   D_hat.bottomRightCorner(row_D, row_D) = -MatrixXd::Identity(row_D, row_D);
+  std::cout <<"D_hat: " << D_hat << "\n";
 
   /*
   f^hat = [f]
           [0]
   */
- Eigen::VectorXd f_hat(row_D);
- f_hat = this->f, VectorXd::Zero(row_D);
+ Eigen::VectorXd f_hat(row_D+row_D);
+  f_hat.head(row_D) = this->f;
+  f_hat.tail(row_D) = VectorXd::Zero(row_D);
+ std::cout <<"f_hat: " << f_hat << "\n";
 
 // SOLVING QP PROBLEM WITH  EIGEN-QP
-    Eigen::VectorXd x_opt(row_A);
-    c_hat = -c_hat;
-    D_hat = -D_hat; // solver solves for >=0
-    f_hat = -f_hat;
+
+/*
+    From quadprog documentation:
+
+    Solve a strictly convex quadratic program
+
+    Minimize     1/2 x^T G x - g0^T x
+    Subject to   CE.T x - ce0  = 0
+                 CI.T x - ci0 >= 0
+
+    Where CE = C[:, :m_eq]
+      CI = C[:, m_eq:]
+      ce0 = c0[:meq]
+      ci0 = c0[meq:]
+
+    int result = solve_quadprog(
+        G,
+        g0,
+        C,
+        c0,
+        x,
+        m_eq [default = 0],
+        factorized [default = 0]
+    );
+
+    To solve the problem written in former form we must put
+*/
+    Eigen::VectorXd x_opt(col_A+row_D);
+    c_hat = -c_hat.eval();
+    D_hat.transposeInPlace(); // solver solves for >=0
+    D_hat = -D_hat.eval();
+    f_hat = -f_hat.eval();
     const int sol = solve_quadprog(H, c_hat, D_hat, f_hat, x_opt);
     if (sol == 1)
         throw std::invalid_argument("Non feasible problem");

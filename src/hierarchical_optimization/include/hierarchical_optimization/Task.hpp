@@ -1,3 +1,4 @@
+#pragma once
 #include <Eigen/Dense>
 
 namespace task{
@@ -31,6 +32,10 @@ class Task{
             this->b = b;
             this->D = D;
             this->f = f;
+        }
+
+        friend auto operator<<(std::ostream& os, Task const& m) -> std::ostream& { 
+            return os << m.A;
         }
 
     private:

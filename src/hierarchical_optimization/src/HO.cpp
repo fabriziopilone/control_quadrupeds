@@ -47,39 +47,52 @@ Z_2 = Null(A_1)*Null( A_2*Null(A_1) ) = Z_1 * Null( A_2 * Z_1 )
 
 */
 
-#include "Task.cpp"
 #include "quadprog/quadprog.hpp"
+#include "hierarchical_optimization/HO.hpp"
+#include <iostream>
 using namespace task;
 using namespace Eigen;
 
-Eigen::VectorXd solve_ho(Task task_vec[], int size){
+HO::HO(){
+    this->size = 0;
+}
+HO::HO(std::vector<task::Task> task_vec, int size){
+    this->task_vec = task_vec;
+    this->size = size;
+};
+
+Eigen::VectorXd HO::solve_ho(){
 
     if (size == 0)
         throw std::invalid_argument("The task vector must not be empty");
 
-    for (int i=0; i<size; i++){
-        if(typeid(task_vec[i]) != typeid(Task))
+    for (int i=0; i<=size-1; i++){
+        if(typeid(task_vec[i]) != typeid(task::Task))
             throw std::invalid_argument("The task vector must contain only Task type");
     }
     
-    Task temp;
-    int rows_A = task_vec[0].get_A().rows();
+    task::Task temp;
+    int cols_A = task_vec[0].get_A().cols();
     int rows_D = task_vec[0].get_D().rows();
-    MatrixXd Z_p = MatrixXd::Identity(rows_A, rows_A);
-    VectorXd xi_opt = VectorXd::Zero(rows_A + rows_D);
-    VectorXd x_opt = VectorXd::Zero(rows_A);
-    VectorXd v_opt_vec = VectorXd::Zero(rows_D);
-    VectorXd z_opt = VectorXd::Zero(rows_A);
 
-    MatrixXd H(rows_A+rows_D, rows_A+rows_D);
-    VectorXd c(rows_A, rows_D);
+    MatrixXd Z_p = MatrixXd::Identity(cols_A, cols_A);
+    VectorXd xi_opt = VectorXd::Zero(cols_A + rows_D);
+    VectorXd x_opt = VectorXd::Zero(cols_A);
+    VectorXd v_opt_vec = VectorXd::Zero(rows_D);
+    VectorXd z_opt = VectorXd::Zero(cols_A);
+
+    MatrixXd H(cols_A+rows_D, cols_A+rows_D);
+    VectorXd c(cols_A + rows_D);
     MatrixXd D_all = task_vec[0].get_D();
     MatrixXd D_hat(rows_D+rows_D, rows_D+rows_D);
 
     VectorXd f_all(rows_D);
     VectorXd f_hat(rows_D+rows_D);
 
-    for (int i=0; i<size; i++){
+    for (int i=0; i<=size-1; i++){
+        std::cout <<"Size: " << size <<"\n";
+        std::cout <<"Indice i: " <<i <<"\n";
+        std::cout <<"Proiettore nel nullo Zp: " <<Z_p <<"\n";
         temp = task_vec[i];
         MatrixXd A_p1 = temp.get_A();
         MatrixXd D_p1 = temp.get_D();
@@ -88,40 +101,46 @@ Eigen::VectorXd solve_ho(Task task_vec[], int size){
         rows_D = D_p1.rows();
 
         // H MATRIX
-        H.topLeftCorner(rows_A, rows_A) = Z_p.transpose()*A_p1.transpose()*A_p1*Z_p;
-        H.bottomLeftCorner(rows_D, rows_A) = MatrixXd::Zero(rows_D, rows_A);
-        H.topRightCorner(rows_A, rows_D) = MatrixXd::Zero(rows_A, rows_D);
+        H.topLeftCorner(cols_A, cols_A) = Z_p.transpose()*A_p1.transpose()*A_p1*Z_p;
+        H.bottomLeftCorner(rows_D, cols_A) = MatrixXd::Zero(rows_D, cols_A);
+        H.topRightCorner(cols_A, rows_D) = MatrixXd::Zero(cols_A, rows_D);
         H.bottomRightCorner(rows_D, rows_D) = MatrixXd::Identity(rows_D, rows_D);
+        std::cout << "Matrice H: " <<H <<"\n";
 
         // c VECTOR
-        c.head(rows_A) = Z_p.transpose()*A_p1.transpose()*(A_p1*x_opt - b_p1);
+        c.head(cols_A) = Z_p.transpose()*A_p1.transpose()*(A_p1*x_opt - b_p1);
         c.tail(rows_D) = VectorXd::Zero(rows_D);
+        std::cout << "Matrice c: " <<c <<"\n";
 
         // D MATRIX
         if (i==0){
-            D_hat.bottomLeftCorner(rows_D, rows_A) = MatrixXd::Zero(rows_D, rows_A);
+            D_hat.bottomLeftCorner(rows_D, cols_A) = MatrixXd::Zero(rows_D, cols_A);
             D_hat.bottomRightCorner(rows_D, rows_D) = -MatrixXd::Identity(rows_D, rows_D);
-            D_hat.topLeftCorner(rows_D, rows_A) = D_p1;
+            D_hat.topLeftCorner(rows_D, cols_A) = D_p1;
             D_hat.topRightCorner(rows_D, rows_D) = -MatrixXd::Identity(rows_D, rows_D);
         }
         else{
             int rows_Dall = D_all.rows();
             MatrixXd temp_D = D_all;
-            MatrixXd Z_p_vec(i*rows_A, rows_A);
-            for (int j=0; j<=i; j++){
-                Z_p_vec = Z_p, Z_p;
-            }
+            //MatrixXd Z_p_vec((i+1)*rows_A, rows_A);
+            //for (int j=0; j<=i; j++){
+            //    Z_p_vec << Z_p, Z_p;
+            //}
             
+            //std::cout <<"Zp_vec: " <<Z_p_vec <<"\n";
             D_all.conservativeResize(rows_Dall+rows_D, NoChange);
             D_all.topRows(rows_D) = D_p1;
             D_all.bottomRows(rows_Dall) = temp_D;
 
-            D_hat.resize(D_all.rows()+rows_D, rows_A+rows_D);
-            D_hat.topLeftCorner(D_all.rows(), rows_A) = D_all*Z_p_vec;
-            D_hat.bottomLeftCorner(rows_D, rows_A) = MatrixXd::Zero(rows_D, rows_A);
+            D_hat.resize(D_all.rows()+rows_D, cols_A+rows_D);          
+            D_hat.topLeftCorner(D_all.rows(), cols_A) = D_all*Z_p;
+            D_hat.bottomLeftCorner(rows_D, cols_A) = MatrixXd::Zero(rows_D, cols_A);
 
-            D_hat.topRightCorner(D_all.rows(), rows_A) = -MatrixXd::Identity(rows_D, rows_D), MatrixXd::Zero(D_all.rows()-rows_D, rows_D);
+            MatrixXd temporanea(D_all.rows(), rows_D);
+            temporanea << -MatrixXd::Identity(rows_D, rows_D), MatrixXd::Zero(D_all.rows()-rows_D, rows_D);
+            D_hat.topRightCorner(D_all.rows(), rows_D) << -MatrixXd::Identity(rows_D, rows_D), MatrixXd::Zero(D_all.rows()-rows_D, rows_D);
             D_hat.bottomRightCorner(rows_D, rows_D) = -MatrixXd::Identity(rows_D, rows_D);
+            std::cout << "Matrice D_hat: " <<D_hat <<"\n";
         }   
 
         // f VECTOR
@@ -146,33 +165,83 @@ Eigen::VectorXd solve_ho(Task task_vec[], int size){
 
         if (i != 0){
             VectorXd v_ext(v_opt_vec.rows()+rows_D);
-            v_ext = VectorXd::Zero(rows_D), v_opt_vec;
+            v_ext << VectorXd::Zero(rows_D), v_opt_vec;
             f_hat = f_hat + v_ext;
         }
 
         f_hat.conservativeResize(f_all.rows()+rows_D);
         f_hat.tail(rows_D) = VectorXd::Zero(rows_D);
+        std::cout << "Matrice f_hat: " <<f_hat <<"\n";
 
         /*
         SOLVING QP PROBLEM
         */
-       D_hat = -D_hat;
+        c = -c.eval();
+        D_hat.transposeInPlace(); // solver solves for >=0
+        D_hat = -D_hat.eval();
+        f_hat = -f_hat.eval();
        const int sol = solve_quadprog(H, c, D_hat, f_hat, xi_opt);
+        if (sol == 1) {
+        std::cerr << "At priority " << i<< ", constraints are inconsistent, no solution." << '\n' << std::endl;
+        } else if (sol == 2) {
+        std::cerr << "At priority " << i << ", matrix G is not positive definite." << '\n' << std::endl;
+         }
 
-       z_opt = xi_opt(seq(0, rows_A));
+         std::cout << "Vettore soluzione xi_opt: " <<xi_opt <<"\n";
+
+       z_opt = xi_opt(seq(0, cols_A-1));
        x_opt = x_opt + Z_p*z_opt;
+       std::cout << "x_opt: " << x_opt <<"\n";
 
        VectorXd v_temp = v_opt_vec;
-       v_opt_vec.resize(v_opt_vec.rows()+rows_D);
-       v_opt_vec.head(rows_D) = xi_opt.tail(v_temp.rows());
-       v_opt_vec.tail(v_temp.rows()) = v_temp;
+       if(i != 0){
+            v_opt_vec.resize(v_opt_vec.rows()+rows_D);
+            v_opt_vec.head(rows_D) = xi_opt.tail(rows_D);
+            v_opt_vec.tail(v_temp.rows()) = v_temp;
+       }
+       else{v_opt_vec = xi_opt.tail(rows_D);}
+       std::cout <<"v_opt_vec: " <<v_opt_vec <<"\n";
 
        // UPDATING NULL SPACE PROJECTOR
+       /*
        MatrixXd Null_AZp(rows_A, rows_A);
        MatrixXd M = A_p1*Z_p;
        Eigen::MatrixXd pInv = M.completeOrthogonalDecomposition().pseudoInverse();
        Null_AZp = MatrixXd::Identity(rows_A, rows_A) - pInv*M;
        Z_p = Z_p*Null_AZp;
+       */
+       Z_p *= null_space_projector(A_p1*Z_p);
+       std::cout <<"Zp: " <<Z_p <<"\n";
 
     }
+    return x_opt;
 };
+
+template<typename MatType>
+using PseudoInverseType = Eigen::Matrix<typename MatType::Scalar, MatType::ColsAtCompileTime, MatType::RowsAtCompileTime>;
+
+template<typename MatType>
+PseudoInverseType<MatType> pseudoinverse(const MatType &a, double epsilon = std::numeric_limits<double>::epsilon())
+{
+    using WorkingMatType = Eigen::Matrix<typename MatType::Scalar, Eigen::Dynamic, Eigen::Dynamic, 0,
+    MatType::MaxRowsAtCompileTime, MatType::MaxColsAtCompileTime>;
+    Eigen::BDCSVD<WorkingMatType> svd(a, Eigen::ComputeThinU | Eigen::ComputeThinV);
+    svd.setThreshold(epsilon*std::max(a.cols(), a.rows()));
+    Eigen::Index rank = svd.rank();
+    Eigen::Matrix<typename MatType::Scalar, Eigen::Dynamic, MatType::RowsAtCompileTime,
+    0, Eigen::BDCSVD<WorkingMatType>::MaxDiagSizeAtCompileTime, MatType::MaxRowsAtCompileTime>
+    tmp = svd.matrixU().leftCols(rank).adjoint();
+    tmp = svd.singularValues().head(rank).asDiagonal().inverse() * tmp;
+    return svd.matrixV().leftCols(rank) * tmp;
+}
+
+/* ========================== null_space_projector ========================== */
+
+inline MatrixXd HO::null_space_projector(const MatrixXd& M)
+{
+    // return   Eigen::MatrixXd::Identity(M.cols(), M.cols())
+    //        - pseudoinverse(M) * M;
+
+    return   Eigen::MatrixXd::Identity(M.cols(), M.cols())
+           - M.completeOrthogonalDecomposition().pseudoInverse().eval() * M;
+}
