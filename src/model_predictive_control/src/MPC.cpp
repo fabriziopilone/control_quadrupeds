@@ -192,7 +192,7 @@ Task MPC::torque_limits_constraint(){
         [         ...       [ [ [q_(N-1)', qdot_(N-1)']' ]          I^A = [I, 0]
         [0 ... 0 0 0 ... I^A] [     [tau_1', fc_1']'     ]                [0, 0]
                               [         [...]            ]
-                              [ [tau_(N-2)', fc_(N-2)']  ]
+                              [ [tau_(N-1)', fc_(N-1)']  ]
     */
 
     int joint_dim = robot.get_state_dim() -6;   // First 6 states are the non-actuated floating base pose
@@ -238,7 +238,7 @@ Task MPC::motion_tracking_constraint(){
         [   ...    0 ... 0] [ [q_(N-1)', qdot_(N-1)']' ] =  [    ...    ]
         [0 0 ... I 0 ... 0] [     [tau_1', fc_1']'     ]    [x_(N-1)^des]
                             [         [...]            ]
-                            [ [tau_(N-2)', fc_(N-2)']  ]
+                            [ [tau_(N-1)', fc_(N-1)']' ]
     */
 
     int joint_dim = robot.get_state_dim() - 6;   // First 6 states are the non-actuated floating base pose
@@ -268,11 +268,19 @@ Task MPC::friction_constraint(){
     (approximated as pyramid cone for linearity)
     h->heading, l->lateral, n->normal directions, mu->friction coefficient
     (h-n*mu)*f <=0                  [0, 0, 0, h-n*mu    ] [q    ]    [0]
-    -(h+n*mu)*f <=0                 [0, 0, 0, -(h+n*mu) ] [q_dot]    [0]
-    (l-n*mu)*f <=0              =>  [0, 0, 0, l-n*mu    ] [tau  ] <= [0]
-    -(l+n*mu)*f <=0                 [0, 0, 0, -(l+n*mu) ] [f    ]    [0]
-    f_min <= n*f <= f_max           [0, 0, 0, n         ]            [f_max]
+    -(h+n*mu)*f <=0                 [0, 0, 0, -(h+n*mu) ] [q_dot]    [0]     
+    (l-n*mu)*f <=0             -->  [0, 0, 0, l-n*mu    ] [tau  ] <= [0]        --> [0  |0 F|] [x] <= d
+    -(l+n*mu)*f <=0                 [0, 0, 0, -(l+n*mu) ] [f    ]    [0]                       [u]
+    f_min <= n*f <= f_max           [0, 0, 0, n         ]            [f_max]    
                                     [0, 0, 0, -n        ]            [-f_min]
+
+                        [0 ... 0 |0 F|   0   ...   0  ] [     [q_1', qdot_1']'     ]    [d]
+                        [0 ... 0   0   |0 F| ...   0  ] [         [...]            ]    [d]
+                        [0 ... 0   0     0   ...   0  ] [ [q_(N-1)', qdot_(N-1)']' ] <= [d]
+                        [0 ... 0   0     0   ... |0 F|] [     [tau_1', fc_1']'     ]    [d]
+                                                        [         [...]            ]    [d]
+                                                        [ [tau_(N-1)', fc_(N-1)']' ]    [d]
+
     */
 
 
@@ -297,20 +305,22 @@ Task MPC::friction_constraint(){
     Eigen::VectorXd f = VectorXd::Zero(6*ncp*mpc_step_horizon);
 
 
-    Eigen::MatrixXd Di = MatrixXd::Zero(6*ncp, cols);
-    Di.block(0, 3*joint_dim, ncp, contact_forces_dim) = h-n*mu;
-    Di.block(ncp, 3*joint_dim, ncp, contact_forces_dim) = -(h+n*mu);
-    Di.block(2*ncp, 3*joint_dim, ncp, contact_forces_dim) = l-n*mu;
-    Di.block(3*ncp, 3*joint_dim, ncp, contact_forces_dim) =-(l+n*mu);
-    Di.block(4*ncp, 3*joint_dim, ncp, contact_forces_dim) = n;
-    Di.block(5*ncp, 3*joint_dim, ncp, contact_forces_dim) = -n;
+    Eigen::MatrixXd Di = MatrixXd::Zero(6*ncp, joint_dim+contact_forces_dim);
+    Di.block(0, joint_dim, ncp, contact_forces_dim) = h-n*mu;
+    Di.block(ncp, joint_dim, ncp, contact_forces_dim) = -(h+n*mu);
+    Di.block(2*ncp, joint_dim, ncp, contact_forces_dim) = l-n*mu;
+    Di.block(3*ncp, joint_dim, ncp, contact_forces_dim) =-(l+n*mu);
+    Di.block(4*ncp, joint_dim, ncp, contact_forces_dim) = n;
+    Di.block(5*ncp, joint_dim, ncp, contact_forces_dim) = -n;
+
+    Eigen::VectorXd fi = VectorXd::Zero(6*ncp);
+    fi.segment(4*ncp, ncp) = VectorXd::Ones(ncp)*robot.get_f_max();
+    fi.segment(5*ncp, ncp) = -VectorXd::Ones(ncp)*robot.get_f_min();
 
     for (int i = 0; i < mpc_step_horizon; i++) {
-        D.block(i*(6*ncp), i*cols, 6*ncp, cols) = Di;
+        D.block(i*(6*ncp), 2*joint_dim + i*Di.cols(), 6*ncp, Di.cols()) = Di;
+        f.segment(i*(6*ncp), 6*ncp) = fi;
     }
-
-    f.segment(4*ncp, ncp) = VectorXd::Ones(ncp)*robot.get_f_max();
-    f.segment(5*ncp, ncp) = -VectorXd::Ones(ncp)*robot.get_f_min();
 
     Task friction(A, b, D, f);
     return friction;
