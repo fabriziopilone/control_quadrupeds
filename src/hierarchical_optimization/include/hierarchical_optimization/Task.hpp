@@ -14,6 +14,7 @@ class Task{
         Eigen::VectorXd get_b() {return this->b;};
         Eigen::MatrixXd get_D() {return this->D;};
         Eigen::VectorXd get_f() {return this->f;};
+        double get_reg() {return this->reg;};
 
         void set_A(Eigen::MatrixXd A){
             this->A= A;
@@ -43,5 +44,6 @@ class Task{
         Eigen::VectorXd b;
         Eigen::MatrixXd D;
         Eigen::VectorXd f;
+        double reg = 1e-06;
 };
 }

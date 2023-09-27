@@ -105,5 +105,50 @@ int main(){
     VectorXd x_opt2(2);
     x_opt2 = ho.solve_ho();
     std::cout <<"Soluzione trovata: " <<x_opt2;
-    
+
+    Eigen::MatrixXd A3(1,1);
+    Eigen::VectorXd b3(1);
+    Eigen::MatrixXd D3(1,1);
+    Eigen::VectorXd f3(1);
+
+    A3(0,0) = 1;
+    b3(0) = 0;
+    D3(0,0) = 1;
+    f3(0) = -20;
+    /*
+    minimze x^2 + v^2
+    s.t     x - 20 <= v
+    */
+
+    Task test3(A3, b3, D3, f3);
+    std::cout <<test3 << "\n";
+    Eigen::VectorXd x_opt3(2);
+    x_opt3 = test3.solve_QP();
+    std::cout << "Soluzione task 1 singolo: " << x_opt3 <<"\n";
+
+
+
+
+    int state_dim = 8;
+    int contact_forces_dim = 1;
+    int mpc_step_horizon = 4;
+    int joint_dim = state_dim-6;
+
+    Eigen::MatrixXd A = MatrixXd::Zero(0, 2*state_dim + state_dim + contact_forces_dim);
+    Eigen::VectorXd b = VectorXd::Zero(0);
+
+    Eigen::MatrixXd D = MatrixXd::Zero(2*mpc_step_horizon*(joint_dim+contact_forces_dim), mpc_step_horizon * (2*joint_dim+joint_dim+contact_forces_dim) );
+    Eigen::VectorXd f = VectorXd::Zero(2*mpc_step_horizon*(joint_dim+contact_forces_dim));
+
+    Eigen::MatrixXd I_aug = MatrixXd::Zero(joint_dim+contact_forces_dim, joint_dim+contact_forces_dim);
+    I_aug.topLeftCorner(joint_dim, joint_dim) = MatrixXd::Identity(joint_dim, joint_dim);
+
+    for (int i = 0; i < mpc_step_horizon; ++i)
+    {
+        D.block(i * I_aug.rows(), i * I_aug.cols(), I_aug.rows(), I_aug.cols()) = I_aug;
+    }
+
+    std::cout <<"I_aug:\n" <<I_aug <<"\n";
+    std::cout <<"La matrice diagonale a blocchi è:\n" << D <<"\n";
+
 }

@@ -93,19 +93,24 @@ Eigen::VectorXd HO::solve_ho(){
         std::cout <<"Size: " << size <<"\n";
         std::cout <<"Indice i: " <<i <<"\n";
         std::cout <<"Proiettore nel nullo Zp: " <<Z_p <<"\n";
-        temp = task_vec[i];
+        temp.set_task(task_vec[i].get_A(), task_vec[i].get_b(), task_vec[i].get_D(), task_vec[i].get_f());
         MatrixXd A_p1 = temp.get_A();
         MatrixXd D_p1 = temp.get_D();
         VectorXd b_p1 = temp.get_b();
         VectorXd f_p1 = temp.get_f();
         rows_D = D_p1.rows();
 
+        H.resize(cols_A+rows_D, cols_A+rows_D);
+        c.resize(cols_A+rows_D);
+        f_hat.resize(rows_D+rows_D);
+
         // H MATRIX
-        H.topLeftCorner(cols_A, cols_A) = Z_p.transpose()*A_p1.transpose()*A_p1*Z_p;
+        H.topLeftCorner(cols_A, cols_A) = Z_p.transpose()*A_p1.transpose()*A_p1*Z_p + temp.get_reg()*MatrixXd::Identity(cols_A, cols_A);
         H.bottomLeftCorner(rows_D, cols_A) = MatrixXd::Zero(rows_D, cols_A);
         H.topRightCorner(cols_A, rows_D) = MatrixXd::Zero(cols_A, rows_D);
         H.bottomRightCorner(rows_D, rows_D) = MatrixXd::Identity(rows_D, rows_D);
         std::cout << "Matrice H: " <<H <<"\n";
+        std::cout <<"Regolarizzazione: " << temp.get_reg() <<"\n";
 
         // c VECTOR
         c.head(cols_A) = Z_p.transpose()*A_p1.transpose()*(A_p1*x_opt - b_p1);
@@ -179,7 +184,7 @@ Eigen::VectorXd HO::solve_ho(){
         c = -c.eval();
         D_hat.transposeInPlace(); // solver solves for >=0
         D_hat = -D_hat.eval();
-        f_hat = -f_hat.eval();
+        //f_hat = -f_hat.eval();
        const int sol = solve_quadprog(H, c, D_hat, f_hat, xi_opt);
         if (sol == 1) {
         std::cerr << "At priority " << i<< ", constraints are inconsistent, no solution." << '\n' << std::endl;

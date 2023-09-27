@@ -78,7 +78,7 @@ Eigen::VectorXd Task::solve_QP(){
         [ 0  I]
     */
    Eigen::MatrixXd H(col_A + row_D, col_A+row_D);
-   H.topLeftCorner(col_A, col_A) = A.transpose()*A;
+   H.topLeftCorner(col_A, col_A) = A.transpose()*A + this->reg*MatrixXd::Identity(col_A, col_A);
    H.topRightCorner(col_A, row_D) = MatrixXd::Zero(col_A, row_D);
    H.bottomLeftCorner(row_D, col_A) = MatrixXd::Zero(row_D, col_A);
    H.bottomRightCorner(row_D, row_D) = MatrixXd::Identity(row_D, row_D);
@@ -146,7 +146,7 @@ Eigen::VectorXd Task::solve_QP(){
     c_hat = -c_hat.eval();
     D_hat.transposeInPlace(); // solver solves for >=0
     D_hat = -D_hat.eval();
-    f_hat = -f_hat.eval();
+    //f_hat = -f_hat.eval();
     const int sol = solve_quadprog(H, c_hat, D_hat, f_hat, x_opt);
     if (sol == 1)
         throw std::invalid_argument("Non feasible problem");

@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>MPC</name>
+  <name>model_predictive_control</name>
   <version>0.0.0</version>
   <description>TODO: Package description</description>
   <maintainer email="fabriziopilone99@hotmail.it">fabrizio</maintainer>
@@ -11,6 +11,14 @@
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
+
+  <depend>pinocchio</depend>
+  <depend>robot</depend>
+  <build_depend>eigen</build_depend>
+  <build_depend>hierarchical_optimization</build_depend>
+  <build_depend>quadprog</build_depend>
+  <build_export_depend>eigen</build_export_depend> <!-- If your package uses Eigen3 in public headers, then also add these tags so downstream packages also depend on this package and Eigen3. -->
+
 
   <export>
     <build_type>ament_cmake</build_type>
