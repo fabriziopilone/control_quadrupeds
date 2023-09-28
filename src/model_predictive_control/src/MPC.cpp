@@ -25,28 +25,30 @@ MPC::MPC(std::string robot_name="solo12", double dT=1.0/400):robot(robot_name){
     this->robot.set_optimal_input(optimal_input);
 }
 
-VectorXd MPC::solve_MPC(Eigen::VectorXd q, Eigen::VectorXd q_dot, GeneralizedPose gen_pose){
+std::vector<Eigen::VectorXd> MPC::solve_MPC(Eigen::VectorXd q, Eigen::VectorXd q_dot, GeneralizedPosesWithTime gen_poses){
 
     robot.set_q(q);
     robot.set_qdot(q_dot);
     robot.set_ground_feet_names(gen_pose.contact_feet_names);
 
     int state_dim = this->robot.get_state_dim();
+    int contact_forces_dim = this->robot.get_contact_feet_dim();
     int input_dim = state_dim+contact_forces_dim;
     int joint_dim = state_dim - 6;  // First 6 states are the non-actuated floating base pose
 
     std::vector<Task> task_vec = create_tasks(task_request);
 
     HO hierarchical_optimization(task_vec, task_vec.size());
-    Eigen::VectorXd opt_inp = hierarchical_optimization.solve_ho();
+    Eigen::VectorXd xi_opt = hierarchical_optimization.solve_ho();
 
     std::vector<Eigen::VectorXd> optimal_input(mpc_step_horizon);
     for (int i=0; i<mpc_step_horizon; i++){
         Eigen::VectorXd input_i;
-        input_i = opt_inp.segment(state_dim*2 + i*(input_dim+2*state_dim), input_dim);
+        input_i = xi_opt.segment(state_dim*2 + i*(input_dim+2*state_dim), input_dim);
         optimal_input[i] = input_i;
     }
-
+    robot.set_optimal_input(optimal_input);
+    return optimal_input;
 }
 
 // CREATION OF EACH TASK INSIDE THE "task_request" VECTOR
@@ -70,12 +72,12 @@ std::vector<Task> MPC::create_tasks(std::vector<std::string> task_request){
 
             case 2:     // task_req = friction_constraint
 
-                task_vec.push_back(friction_constraint());
+                task_vec.push_back(friction_constraint(gen_poses));
             break;
 
             case 3:     // task_req = motion_tracking
 
-                task_vec.push_back(friction_constraint());
+                task_vec.push_back(motion_tracking_constraint(gen_poses));
             break;
 
             default:
@@ -228,7 +230,7 @@ Task MPC::torque_limits_constraint(){
     
 }
 
-Task MPC::motion_tracking_constraint(){
+Task MPC::motion_tracking_constraint(GeneralizedPosesWithTime gen_poses){
 
     /*
         xi = xi^des
@@ -262,7 +264,7 @@ Task MPC::motion_tracking_constraint(){
     
 }
 
-Task MPC::friction_constraint(){
+Task MPC::friction_constraint(GeneralizedPosesWithTime gen_poses){
     /*
     To avoid slipping, the resulting contact forces must be constrained to lie within the friction cones 
     (approximated as pyramid cone for linearity)
@@ -289,37 +291,61 @@ Task MPC::friction_constraint(){
     int cols = 2*joint_dim+joint_dim+contact_forces_dim;
     int ncp = robot.get_contact_feet_dim();     // Number of points of contact (legs on the ground)
 
-    Eigen::MatrixXd h = MatrixXd::Zero(robot.get_contact_feet_dim(), contact_forces_dim);
-    Eigen::MatrixXd l = MatrixXd::Zero(robot.get_contact_feet_dim(), contact_forces_dim);
-    Eigen::MatrixXd n = MatrixXd::Zero(robot.get_contact_feet_dim(), contact_forces_dim);
+    Eigen::MatrixXd h = MatrixXd::Zero(ncp, contact_forces_dim);
+    Eigen::MatrixXd l = MatrixXd::Zero(ncp, contact_forces_dim);
+    Eigen::MatrixXd n = MatrixXd::Zero(ncp, contact_forces_dim);
 
-    for (int i = 0; i < robot.get_contact_feet_dim(); i++) {
-        h.block(i, 3*i, 1, 3) << 1, 0, 0;
-        l.block(i, 3*i, 1, 3) << 0, 1, 0;
+    for (int i = 0; i < ncp; i++) {
+        he.block(i, 3*i, 1, 3) << 1, 0, 0;
+        la.block(i, 3*i, 1, 3) << 0, 1, 0;
         n.block(i, 3*i, 1, 3) << 0, 0, 1;
     }
 
-    Eigen::MatrixXd A = MatrixXd::Zero(0, mpc_step_horizon*cols);
-    Eigen::VectorXd b = VectorXd::Zero(0, mpc_step_horizon*cols);
+    Eigen::MatrixXd A = MatrixXd::Zero(3*ncp*mpc_step_horizon, mpc_step_horizon*cols);
+    Eigen::VectorXd b = VectorXd::Zero(3*ncp*mpc_step_horizon, mpc_step_horizon*cols);
     Eigen::MatrixXd D = MatrixXd::Zero(6*ncp*mpc_step_horizon, cols*mpc_step_horizon);
     Eigen::VectorXd f = VectorXd::Zero(6*ncp*mpc_step_horizon);
 
-
+    Eigen::MatrixXd Ai = MatrixXd::Identity(3*ncp, contact_forces_dim);
     Eigen::MatrixXd Di = MatrixXd::Zero(6*ncp, joint_dim+contact_forces_dim);
-    Di.block(0, joint_dim, ncp, contact_forces_dim) = h-n*mu;
-    Di.block(ncp, joint_dim, ncp, contact_forces_dim) = -(h+n*mu);
-    Di.block(2*ncp, joint_dim, ncp, contact_forces_dim) = l-n*mu;
-    Di.block(3*ncp, joint_dim, ncp, contact_forces_dim) =-(l+n*mu);
-    Di.block(4*ncp, joint_dim, ncp, contact_forces_dim) = n;
-    Di.block(5*ncp, joint_dim, ncp, contact_forces_dim) = -n;
-
     Eigen::VectorXd fi = VectorXd::Zero(6*ncp);
     fi.segment(4*ncp, ncp) = VectorXd::Ones(ncp)*robot.get_f_max();
     fi.segment(5*ncp, ncp) = -VectorXd::Ones(ncp)*robot.get_f_min();
 
     for (int i = 0; i < mpc_step_horizon; i++) {
+        GeneralizedPose gen_pose = gen_poses[i];
+        std::vector<std::string> contact_feet_names = gen_poses[i].contact_feet_names;
+        Di.setZero();
+
+        for (int j=0; j<static_cast<int>(contact_feet_names.size()); j++) {
+            auto it = std::find(robot.get_feet_names().begin(), robot.get_feet_names().end(), contact_feet_names[j]);
+        // find returns an iterator to the first element in range [first, last) that compares equal to val, if no element is found, returns last
+            int index = std::distance(robot.get_feet_names().begin(), it);
+
+            // For each leg in contact (index) populate the Di matrix, the swing legs will have all zeros
+            Di.block(index*6, joint_dim, 1, contact_forces_dim) = h.row(index)-n.row(index)*mu;
+            Di.block(1+index*6, joint_dim, 1, contact_forces_dim) = -(h.row(index)+n.row(index)*mu);
+            Di.block(2+index*6, joint_dim, 1, contact_forces_dim) = l.row(index)-n.row(index)*mu;
+            Di.block(3+index*6, joint_dim, 1, contact_forces_dim) =-(l.row(index)+n.row(index)*mu);
+            Di.block(4+index*6, joint_dim, 1, contact_forces_dim) = n.row(index);
+            Di.block(5+index*6, joint_dim, 1, contact_forces_dim) = -n.row(index);
+
+            /*
+            Di.block(index , Di.cols()) = MatrixXd::Zero(1, Di.cols());
+            Di.block(index + ncp , Di.cols()) = MatrixXd::Zero(1, Di.cols());
+            Di.block(index + 2*ncp, Di.cols()) = MatrixXd::Zero(1, Di.cols());
+            Di.block(index + 3*ncp, Di.cols()) = MatrixXd::Zero(1, Di.cols());
+            Di.block(index + 4*ncp, Di.cols()) = MatrixXd::Zero(1, Di.cols());
+            Di.block(index + 5*ncp, Di.cols()) = MatrixXd::Zero(1, Di.cols());
+            */
+
+           Ai.block(3*index, 3*index, 3, 3) = MatrixXd::Zero(3,3);
+        }
+
         D.block(i*(6*ncp), 2*joint_dim + i*Di.cols(), 6*ncp, Di.cols()) = Di;
         f.segment(i*(6*ncp), 6*ncp) = fi;
+
+        A.block(i*Ai.rows() , 3*joint_dim + i*Ai.cols(), Ai.rows(), Ai.cols()) = Ai;
     }
 
     Task friction(A, b, D, f);

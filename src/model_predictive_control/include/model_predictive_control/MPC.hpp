@@ -8,6 +8,9 @@
 #include "pinocchio/algorithm/frames.hpp"
 #include "pinocchio/algorithm/aba-derivatives.hpp"
 
+#include "generalized_pose_msgs/msg/generalized_pose.hpp"
+#include "generalized_pose_msgs/msg/generalized_poses_with_time.hpp"
+
 class MPC{
 
     public:
@@ -23,7 +26,7 @@ class MPC{
         void set_steps(int steps){this->mpc_step_horizon = steps;};
 
 
-        Eigen::VectorXd solve_MPC(Eigen::VectorXd q, Eigen::VectorXd q_dot, GeneralizedPose gen_pose);
+        std::vector<Eigen::VectorXd> solve_MPC(Eigen::VectorXd q, Eigen::VectorXd q_dot, GeneralizedPose gen_pose);
 
     private:
     // Private methods
@@ -31,7 +34,7 @@ class MPC{
         Task dynamic_constraint(pinocchio::Model, pinocchio::Data);
         Task torque_limits_constraint();
         Task contact_constraint();
-        Task motion_tracking_constraint();
+        Task motion_tracking_constraint(GeneralizedPosesWithTime);
         Task friction_constraint();
         int resolveOption(std::string);
 

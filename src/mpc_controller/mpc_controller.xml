@@ -1,0 +1,9 @@
+<library path="mpc_controller">
+    <class name="mpc_controller/MPCController"
+        type="mpc_controller::MPCController"
+        base_class_type="controller_interface::ControllerInterface">
+        <description>
+            MPC-based controller for low-level control of quadruped
+        </description>
+    </class>
+</library>

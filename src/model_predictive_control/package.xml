@@ -14,6 +14,7 @@
 
   <depend>pinocchio</depend>
   <depend>robot</depend>
+  <depend>generalized_pose_msgs</depend>
   <build_depend>eigen</build_depend>
   <build_depend>hierarchical_optimization</build_depend>
   <build_depend>quadprog</build_depend>
