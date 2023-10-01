@@ -5,6 +5,8 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # Find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(Eigen3 REQUIRED)
@@ -26,6 +28,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 ament_target_dependencies(${PROJECT_NAME} Eigen3 quadprog)
 
 ament_export_targets(${PROJECT_NAME}_targets HAS_LIBRARY_TARGET)
+#ament_export_dependencies(Eigen3)
 ament_export_dependencies(Eigen3 quadprog)
 
 install(

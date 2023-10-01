@@ -2,7 +2,8 @@
 #include "model_predictive_control/MPC.hpp"
 
 #include "gazebo_msgs/msg/link_states.hpp"
-#include "generalized_pose_msg/msg/generalized_pose.hpp"
+#include "generalized_pose_msgs/msg/generalized_pose.hpp"
+#include "generalized_pose_msgs/msg/generalized_poses_with_time.hpp"
 #include "geometry_msgs/msg/pose.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 
@@ -33,6 +34,7 @@ class MPCController : public controller_interface::ControllerInterface{
         CallbackReturn on_activate(const rclcpp_lifecycle::State& /*previous_state*/) override;
         CallbackReturn on_deactivate(const rclcpp_lifecycle::State& /*previous_state*/) override;
     private:
+        int mpc_step_horizon = 1;
         MPC mpc;
         std::vector<std::string> joint_names;
 
@@ -40,6 +42,14 @@ class MPCController : public controller_interface::ControllerInterface{
         Eigen::VectorXd v;
         Eigen::VectorXd tau;
         GeneralizedPoses des_gen_poses;
+        Eigen::VectorXd q_init;
+
+        // Subscriptions
+        rclcpp::Subscription<gazebo_msgs::msg::LinkStates>::SharedPtr joint_state_subscription = nullptr;
+        rclcpp::Subscription<generalized_pose_msgs::msg::GeneralizedPosesWithTime>::SharedPtr des_gen_poses_subscription = nullptr;
+        
+        // Publishers
+        std::shared_ptr<MPCPublisher> logger = nullptr;
 
 }
 }

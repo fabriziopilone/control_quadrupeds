@@ -5,9 +5,6 @@
 #include "pinocchio/algorithm/frames.hpp"
 #include "pinocchio/algorithm/joint-configuration.hpp"
 
-#include "generalized_pose_msgs/msg/generalized_pose.hpp"
-#include "generalized_pose_msgs/msg/generalized_poses_with_time.hpp"
-
 #include <Eigen/Core>
 
 class Robot{
@@ -39,6 +36,10 @@ class Robot{
         //this->contact_feet_dim = ground_feet_names.size();
         };
     void set_optimal_input(std::vector<Eigen::VectorXd> optimal_input){this->optimal_input = optimal_input;};
+    void set_tau_max(double tau_max){this->tau_max = tau_max;};
+    void set_tau_min(double tau_min){this->tau_min = tau_min;};
+    void set_f_max(double f_max){this->f_max = f_max;};
+    void set_f_min(double f_min){this->f_min = f_min;};
 
     //Methods
     std::vector<Eigen::VectorXd> compute_dynamics(Eigen::VectorXd q, Eigen::VectorXd q_dot, Eigen::VectorXd tau, double dT);

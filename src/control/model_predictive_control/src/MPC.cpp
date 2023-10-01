@@ -3,7 +3,6 @@
  
 #include "pinocchio/algorithm/joint-configuration.hpp"
 #include "pinocchio/algorithm/kinematics.hpp"
-//#include "pinocchio/algorithm/aba-derivatives.hpp"
 
 using namespace Eigen;
 using namespace pinocchio;
@@ -29,14 +28,14 @@ std::vector<Eigen::VectorXd> MPC::solve_MPC(Eigen::VectorXd q, Eigen::VectorXd q
 
     robot.set_q(q);
     robot.set_qdot(q_dot);
-    robot.set_ground_feet_names(gen_pose.contact_feet_names);
+    //robot.set_ground_feet_names(gen_pose.contact_feet_names);
 
     int state_dim = this->robot.get_state_dim();
     int contact_forces_dim = this->robot.get_contact_feet_dim();
     int input_dim = state_dim+contact_forces_dim;
     int joint_dim = state_dim - 6;  // First 6 states are the non-actuated floating base pose
 
-    std::vector<Task> task_vec = create_tasks(task_request);
+    std::vector<Task> task_vec = create_tasks(task_request, gen_poses);
 
     HO hierarchical_optimization(task_vec, task_vec.size());
     Eigen::VectorXd xi_opt = hierarchical_optimization.solve_ho();
@@ -53,7 +52,7 @@ std::vector<Eigen::VectorXd> MPC::solve_MPC(Eigen::VectorXd q, Eigen::VectorXd q
 
 // CREATION OF EACH TASK INSIDE THE "task_request" VECTOR
 
-std::vector<Task> MPC::create_tasks(std::vector<std::string> task_request){
+std::vector<Task> MPC::create_tasks(std::vector<std::string> task_request, GeneralizedPosesWithTime gen_poses){
 
     std::vector <Task> task_vec(task_request.size());
 
@@ -255,6 +254,9 @@ Task MPC::motion_tracking_constraint(GeneralizedPosesWithTime gen_poses){
 
     A.leftCols(mpc_step_horizon*(2*joint_dim)) = MatrixXd::Identity(mpc_step_horizon*(2*joint_dim), mpc_step_horizon*(2*joint_dim));
 
+    for (int i=0; i<mpc_step_horizon; i++){
+
+    }
      //INSERT DESIRED JOINT POSITION AND VELOCITY
 
      // NON COMPLETE, I NEED THE DESIRED TRAJECTORY FOR ALL THE N STEPS OF OPTIMIZATION
@@ -296,8 +298,8 @@ Task MPC::friction_constraint(GeneralizedPosesWithTime gen_poses){
     Eigen::MatrixXd n = MatrixXd::Zero(ncp, contact_forces_dim);
 
     for (int i = 0; i < ncp; i++) {
-        he.block(i, 3*i, 1, 3) << 1, 0, 0;
-        la.block(i, 3*i, 1, 3) << 0, 1, 0;
+        h.block(i, 3*i, 1, 3) << 1, 0, 0;
+        l.block(i, 3*i, 1, 3) << 0, 1, 0;
         n.block(i, 3*i, 1, 3) << 0, 0, 1;
     }
 
@@ -313,8 +315,8 @@ Task MPC::friction_constraint(GeneralizedPosesWithTime gen_poses){
     fi.segment(5*ncp, ncp) = -VectorXd::Ones(ncp)*robot.get_f_min();
 
     for (int i = 0; i < mpc_step_horizon; i++) {
-        GeneralizedPose gen_pose = gen_poses[i];
-        std::vector<std::string> contact_feet_names = gen_poses[i].contact_feet_names;
+        GeneralizedPose gen_pose = gen_poses.generalized_poses_with_time[i].gen_pose;
+        std::vector<std::string> contact_feet_names = gen_pose.contact_feet_names;
         Di.setZero();
 
         for (int j=0; j<static_cast<int>(contact_feet_names.size()); j++) {
