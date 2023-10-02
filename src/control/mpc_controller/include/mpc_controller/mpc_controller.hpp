@@ -40,8 +40,8 @@ class MPCController : public controller_interface::ControllerInterface{
 
         Eigen::VectorXd q;
         Eigen::VectorXd v;
-        Eigen::VectorXd tau;
-        GeneralizedPoses des_gen_poses;
+        std::vector<Eigen::VectorXd> tau;
+        GeneralizedPosesWithTime des_gen_poses;
         Eigen::VectorXd q_init;
 
         // Subscriptions

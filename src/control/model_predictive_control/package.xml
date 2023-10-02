@@ -14,8 +14,9 @@
 
   <depend>pinocchio</depend>
   <depend>robot</depend>
+  <depend>quadprog</depend>
   <build_depend>eigen</build_depend>
-  <depend>hierarchical_optimization</depend>
+  <build_depend>hierarchical_optimization</build_depend>
   <build_export_depend>eigen</build_export_depend> <!-- If your package uses Eigen3 in public headers, then also add these tags so downstream packages also depend on this package and Eigen3. -->
 
 

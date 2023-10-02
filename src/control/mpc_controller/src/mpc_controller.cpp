@@ -169,15 +169,15 @@ using hardware_interface::HW_IF_EFFORT;
         {
             for (int i=0; i<mpc.get_steps(); i++){
                 this->des_gen_poses[i].base_acc << msg->base_acc.x, msg->base_acc.y, msg->base_acc.z;
-                this->des_gen_pose[i].base_vel << msg->base_vel.x, msg->base_vel.y, msg->base_vel.z;
-                this->des_gen_pose[i].base_pos << msg->base_pos.x, msg->base_pos.y, msg->base_pos.z;
+                this->des_gen_poses[i].base_vel << msg->base_vel.x, msg->base_vel.y, msg->base_vel.z;
+                this->des_gen_poses[i].base_pos << msg->base_pos.x, msg->base_pos.y, msg->base_pos.z;
 
-                this->des_gen_pose[i].base_angvel << msg->base_angvel.x, msg->base_angvel.y, msg->base_angvel.z;
-                this->des_gen_pose[i].base_quat << msg->base_quat.x, msg->base_quat.y, msg->base_quat.z, msg->base_quat.w;
+                this->des_gen_poses[i].base_angvel << msg->base_angvel.x, msg->base_angvel.y, msg->base_angvel.z;
+                this->des_gen_poses[i].base_quat << msg->base_quat.x, msg->base_quat.y, msg->base_quat.z, msg->base_quat.w;
 
-                this->des_gen_pose[i].feet_acc = Eigen::VectorXd::Map(msg->feet_acc.data(), msg->feet_acc.size());
-                this->des_gen_pose[i].feet_vel = Eigen::VectorXd::Map(msg->feet_vel.data(), msg->feet_vel.size());
-                this->des_gen_pose[i].feet_pos = Eigen::VectorXd::Map(msg->feet_pos.data(), msg->feet_pos.size());
+                this->des_gen_poses[i].feet_acc = Eigen::VectorXd::Map(msg->feet_acc.data(), msg->feet_acc.size());
+                this->des_gen_poses[i].feet_vel = Eigen::VectorXd::Map(msg->feet_vel.data(), msg->feet_vel.size());
+                this->des_gen_poses[i].feet_pos = Eigen::VectorXd::Map(msg->feet_pos.data(), msg->feet_pos.size());
 
                 this->des_gen_pose[i].contact_feet_names.assign(msg->contact_feet.data(), &msg->contact_feet[msg->contact_feet.size()]);
             }
@@ -189,11 +189,10 @@ using hardware_interface::HW_IF_EFFORT;
 
     /* ===================== Command_interface_configuration ==================== */
 
-    InterfaceConfiguration MPCController::command_interface_configuration() const
-    {
+    InterfaceConfiguration MPCController::command_interface_configuration() const{
         InterfaceConfiguration command_interfaces_config;
         command_interfaces_config.type = interface_configuration_type::INDIVIDUAL;
-        for (const auto& joint : joint_names_) {
+        for (const auto& joint : this->joint_names) {
             command_interfaces_config.names.push_back(joint + "/" + HW_IF_EFFORT);
         }
 
@@ -203,8 +202,7 @@ using hardware_interface::HW_IF_EFFORT;
 
     /* ====================== State_interface_configuration ===================== */
 
-    InterfaceConfiguration MPCController::state_interface_configuration() const
-    {
+    InterfaceConfiguration MPCController::state_interface_configuration() const{
         InterfaceConfiguration state_interfaces_config;
         state_interfaces_config.type = interface_configuration_type::INDIVIDUAL;
         for (const auto& joint : joint_names_) {
@@ -215,4 +213,48 @@ using hardware_interface::HW_IF_EFFORT;
         return state_interfaces_config;
     }
 
-    
+    /* =============================== On_activate ============================== */
+
+    CallbackReturn MPCController::on_activate(const rclcpp_lifecycle::State& /*previous_state*/)
+    {
+        return CallbackReturn::SUCCESS;
+    }
+
+
+    /* ============================== On_deactivate ============================= */
+
+    CallbackReturn MPCController::on_deactivate(const rclcpp_lifecycle::State& /*previous_state*/)
+    {
+        return CallbackReturn::SUCCESS;
+    }
+
+    /* ============================== Update ==============================*/
+
+    CallbackReturn MPCController::update(const rclcpp::Time& time, const rclcpp::Duration& /*period*/){
+        std::vector<std::string> contact_feet_names = mpc.get_generic_feet_names();
+
+        for (uint i=0; i<this->joint_names.size(); i++) {
+            this->q(i+7) = state_interfaces[2*i].get_value();
+            this->v(i+6) = state_interfaces[2*i+1].get_value();
+        }
+        
+        // ##############################################################
+        // Skipped part on interpolation ???????
+        // ##############################################################
+
+        this->tau = mpc.solve_MPC(q, v, des_gen_poses);
+
+        // Send effort command
+        for (uint i=0; i<joint_names.size(); i++) {
+            command_interfaces[i].set_value(tau[0](i));
+        }
+
+        return controller_interface::return_type::OK;
+    }
+}
+
+
+PLUGINLIB_EXPORT_CLASS(
+    mpc_controller::MPCController,
+    controller_interface::ControllerInterface
+)
