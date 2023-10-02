@@ -11,9 +11,16 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 find_package(ament_cmake REQUIRED)
 
 find_package(Eigen3 REQUIRED)
-find_package(hierarchical_optimization REQUIRED)
 find_package(pinocchio REQUIRED)
-find_package(quadprog REQUIRED)
+
+find_package(hierarchical_optimization REQUIRED)
+
+set(LIBRARY_DEPENDENCIES
+	Eigen3
+	pinocchio
+	
+	hierarchical_optimization
+)
 
 add_library(${PROJECT_NAME} SHARED src/MPC.cpp src/Robot.cpp)
 
@@ -23,11 +30,11 @@ target_include_directories(${PROJECT_NAME} PUBLIC
   ${EIGEN3_INCLUDE_DIR}
 )
 
-ament_target_dependencies(${PROJECT_NAME} Eigen3 hierarchical_optimization quadprog)
-target_link_libraries(${PROJECT_NAME} pinocchio::pinocchio)
+ament_target_dependencies(${PROJECT_NAME} PUBLIC ${LIBRARY_DEPENDENCIES})
+#target_link_libraries(${PROJECT_NAME} pinocchio::pinocchio)
 
 ament_export_targets(${PROJECT_NAME}_targets HAS_LIBRARY_TARGET)
-ament_export_dependencies(Eigen3 hierarchical_optimization)
+ament_export_dependencies(${LIBRARY_DEPENDENCIES})
 
 install(
     DIRECTORY include/
@@ -47,6 +54,7 @@ target_include_directories(test1 PUBLIC
     ${EIGEN3_INCLUDE_DIR}
 )
 target_link_libraries(test1 PUBLIC ${PROJECT_NAME})
+ament_target_dependencies(test1 PUBLIC Eigen3 hierarchical_optimization)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

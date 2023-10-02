@@ -35,7 +35,7 @@ std::vector<Eigen::VectorXd> MPC::solve_MPC(Eigen::VectorXd q, Eigen::VectorXd q
     int input_dim = state_dim+contact_forces_dim;
     int joint_dim = state_dim - 6;  // First 6 states are the non-actuated floating base pose
 
-    std::vector<Task> task_vec = create_tasks(task_request, gen_poses);
+    std::vector<Task> task_vec = create_tasks(task_request, gen_poses, q, q_dot);
 
     HO hierarchical_optimization(task_vec, task_vec.size());
     Eigen::VectorXd xi_opt = hierarchical_optimization.solve_ho();
@@ -52,7 +52,7 @@ std::vector<Eigen::VectorXd> MPC::solve_MPC(Eigen::VectorXd q, Eigen::VectorXd q
 
 // CREATION OF EACH TASK INSIDE THE "task_request" VECTOR
 
-std::vector<Task> MPC::create_tasks(std::vector<std::string> task_request, GeneralizedPosesWithTime gen_poses){
+std::vector<Task> MPC::create_tasks(std::vector<std::string> task_request, GeneralizedPosesWithTime gen_poses, Eigen::VectorXd q, Eigen::VectorXd q_dot){
 
     std::vector <Task> task_vec(task_request.size());
 
@@ -61,7 +61,7 @@ std::vector<Task> MPC::create_tasks(std::vector<std::string> task_request, Gener
         switch(resolveOption(task_req)){
             case 0:     // task_req = dynamica_constraint
 
-                task_vec.push_back(dynamic_constraint(robot.get_robot_model(), robot.get_robot_data()));
+                task_vec.push_back(dynamic_constraint(robot.get_robot_model(), robot.get_robot_data(), q, q_dot));
             break;
 
             case 1:     // task_req = torque_limits_constraint
@@ -96,7 +96,7 @@ int MPC::resolveOption(std::string task_name){
     else return 100;
 }
 
-Task MPC::dynamic_constraint(Model robot_model, Data data){
+Task MPC::dynamic_constraint(Model robot_model, Data data, Eigen::VectorXd q_, Eigen::VectorXd q_dot_){
     /*
         x_(k+1) = A_k*x_k + B_k*u_k
         x_1 = A_0*x_0 + B_0*x_0
@@ -119,8 +119,8 @@ Task MPC::dynamic_constraint(Model robot_model, Data data){
 
     //int dim_A = joint_dim*2;
     int dim_A = 2*robot.get_state_dim();
-    Eigen::VectorXd q = robot.get_q();
-    Eigen::VectorXd q_dot = robot.get_qdot();
+    Eigen::VectorXd q = q_;
+    Eigen::VectorXd q_dot = q_dot_;
     Eigen::VectorXd tau = this->robot.get_optimal_input()[0];
     pinocchio::computeABADerivatives(robot_model, data, q, q_dot, tau);
     Eigen::MatrixXd ddq_dq = data.ddq_dq;    // Partial derivative of the joint acceleration vector with respect to the joint configuration.
@@ -353,3 +353,40 @@ Task MPC::friction_constraint(GeneralizedPosesWithTime gen_poses){
     Task friction(A, b, D, f);
     return friction;
 }
+
+/*
+std::vector<Eigen::VectorXd> tune_gains(Eigen::VectorXd q_, Eigen::VectorXd q_dot_, GeneralizedPosesWithTime gen_poses){
+
+    int state_dim = robot.get_state_dim();
+
+    Eigen::VectorXd q;
+    Eigen::VectorXd q_dot;
+
+    q = q_;
+    q_dot = q_dot_;
+
+
+    for (int i=0; i<number_of_wolves; i++){
+        // First error computation
+        // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+        // Propagate dynamics
+        std::vector<Eigen::VectorXd> joint_state_propagated(2);
+        for (int j=0; j<mpc_step_horizon; j++){
+            joint_state_propagated = robot.compute_dynamics(q, q_dot, tau, dT);
+            q = joint_state_propagated[0];
+            q_dot = joint_state_propagated[1];
+
+        // Compute error
+        Eigen::VectorXd error = Vector::Zero(2*state_dim);
+
+        // gen_poses contains the desired pose, not the desired joint pos and vel
+        // TODO keep in consideration this
+        // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+        error.head(state_dim) = q - gen_poses.generalized_poses_with_time[j].gen_pose;
+        error.tail(state_dim) = q_dot - gen_poses.generalized_poses_with_time[j].gen_pose;
+
+        }
+    }
+}
+*/

@@ -9,6 +9,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Find dependencies
 find_package(ament_cmake REQUIRED)
+
 find_package(Eigen3 REQUIRED)
 find_package(quadprog REQUIRED)
 
@@ -46,7 +47,7 @@ install(
 
 
 add_executable(test1 test/test1.cpp)
-target_include_directories(${PROJECT_NAME} PUBLIC
+target_include_directories(test1 PUBLIC
   ${EIGEN3_INCLUDE_DIR}
 )
 target_link_libraries(test1 PUBLIC ${PROJECT_NAME})

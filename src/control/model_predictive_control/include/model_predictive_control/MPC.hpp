@@ -51,13 +51,13 @@ class MPC{
     // Setters
         void set_steps(int steps){this->mpc_step_horizon = steps;};
 
-
         std::vector<Eigen::VectorXd> solve_MPC(Eigen::VectorXd q, Eigen::VectorXd q_dot, GeneralizedPosesWithTime gen_poses);
+        std::vector<Eigen::VectorXd> tune_gains(Eigen::VectorXd, Eigen::VectorXd, GeneralizedPosesWithTime);
 
     private:
     // Private methods
-        std::vector<Task> create_tasks(std::vector<std::string>, GeneralizedPosesWithTime);
-        Task dynamic_constraint(pinocchio::Model, pinocchio::Data);
+        std::vector<Task> create_tasks(std::vector<std::string>, GeneralizedPosesWithTime, Eigen::VectorXd, Eigen::VectorXd);
+        Task dynamic_constraint(pinocchio::Model, pinocchio::Data, Eigen::VectorXd, Eigen::VectorXd);
         Task torque_limits_constraint();
         Task contact_constraint();
         Task motion_tracking_constraint(GeneralizedPosesWithTime);
