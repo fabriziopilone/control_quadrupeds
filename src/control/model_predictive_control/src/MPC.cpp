@@ -33,7 +33,7 @@ std::vector<Eigen::VectorXd> MPC::solve_MPC(Eigen::VectorXd q, Eigen::VectorXd q
     int state_dim = this->robot.get_state_dim();
     int contact_forces_dim = this->robot.get_contact_feet_dim();
     int input_dim = state_dim+contact_forces_dim;
-    int joint_dim = state_dim - 6;  // First 6 states are the non-actuated floating base pose
+    //int joint_dim = state_dim - 6;  // First 6 states are the non-actuated floating base pose
 
     std::vector<Task> task_vec = create_tasks(task_request, gen_poses, q, q_dot);
 
@@ -249,19 +249,22 @@ Task MPC::motion_tracking_constraint(GeneralizedPosesWithTime gen_poses){
     Eigen::MatrixXd A = MatrixXd::Zero(mpc_step_horizon*(2*joint_dim), cols);
     Eigen::VectorXd b = VectorXd::Zero(mpc_step_horizon*(2*joint_dim));
 
-    Eigen::MatrixXd C = MatrixXd::Zero(0, cols);
-    Eigen::VectorXd d = VectorXd::Zero(0);
+    Eigen::MatrixXd D = MatrixXd::Zero(0, cols);
+    Eigen::VectorXd f = VectorXd::Zero(0);
 
     A.leftCols(mpc_step_horizon*(2*joint_dim)) = MatrixXd::Identity(mpc_step_horizon*(2*joint_dim), mpc_step_horizon*(2*joint_dim));
 
     for (int i=0; i<mpc_step_horizon; i++){
+
+        b.segment(2*i*(joint_dim), joint_dim) = gen_poses.generalized_poses_with_time[i].gen_pose.joint_pos;
+        b.segment(2*i*(joint_dim)+joint_dim, joint_dim) = gen_poses.generalized_poses_with_time[i].gen_pose.joint_vel;
 
     }
      //INSERT DESIRED JOINT POSITION AND VELOCITY
 
      // NON COMPLETE, I NEED THE DESIRED TRAJECTORY FOR ALL THE N STEPS OF OPTIMIZATION
 
-     Task motion_tracking(A, b, C, d);
+     Task motion_tracking(A, b, D, f);
      return motion_tracking;
     
 }
@@ -354,39 +357,82 @@ Task MPC::friction_constraint(GeneralizedPosesWithTime gen_poses){
     return friction;
 }
 
-/*
-std::vector<Eigen::VectorXd> tune_gains(Eigen::VectorXd q_, Eigen::VectorXd q_dot_, GeneralizedPosesWithTime gen_poses){
+
+std::vector<Eigen::VectorXd> MPC::tune_gains(Eigen::VectorXd q_, Eigen::VectorXd q_dot_, GeneralizedPosesWithTime gen_poses){
 
     int state_dim = robot.get_state_dim();
 
     Eigen::VectorXd q;
     Eigen::VectorXd q_dot;
 
+    std::vector<Eigen::VectorXd> Kp(number_of_wolves);
+    std::vector<Eigen::VectorXd> Kd(number_of_wolves);
+    std::vector<Eigen::VectorXd> Ki(number_of_wolves);
+
     q = q_;
     q_dot = q_dot_;
 
+    Eigen::VectorXd fit_f = VectorXd::Zero(number_of_wolves);
+
 
     for (int i=0; i<number_of_wolves; i++){
-        // First error computation
-        // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-
-        // Propagate dynamics
-        std::vector<Eigen::VectorXd> joint_state_propagated(2);
-        for (int j=0; j<mpc_step_horizon; j++){
-            joint_state_propagated = robot.compute_dynamics(q, q_dot, tau, dT);
-            q = joint_state_propagated[0];
-            q_dot = joint_state_propagated[1];
-
         // Compute error
-        Eigen::VectorXd error = Vector::Zero(2*state_dim);
+        Eigen::VectorXd error = VectorXd::Zero(2*state_dim);
+        Eigen::VectorXd error_prev = VectorXd::Zero(2*state_dim);
+        Eigen::VectorXd error_int = VectorXd::Zero(2*state_dim);
 
         // gen_poses contains the desired pose, not the desired joint pos and vel
         // TODO keep in consideration this
         // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-        error.head(state_dim) = q - gen_poses.generalized_poses_with_time[j].gen_pose;
-        error.tail(state_dim) = q_dot - gen_poses.generalized_poses_with_time[j].gen_pose;
+        error.head(state_dim) = q - gen_poses.generalized_poses_with_time[0].gen_pose.joint_pos;
+        error.tail(state_dim) = q_dot - gen_poses.generalized_poses_with_time[0].gen_pose.joint_vel;
 
+        fit_f(i) += error.transpose()*error;
+
+        // Propagate dynamics
+        std::vector<Eigen::VectorXd> joint_state_propagated(2);
+        Eigen::VectorXd tau = VectorXd::Zero(state_dim);
+        for (int j=1; j<mpc_step_horizon; j++){
+            tau = Kp[i]*error + Kd[i]*(error-error_prev)/dT + Ki[i]*error_int;
+            joint_state_propagated = robot.compute_dynamics(q, q_dot, tau, dT);
+            q = joint_state_propagated[0];
+            q_dot = joint_state_propagated[1];
+
+        // Error computation
+            error_prev = error;
+            error.head(state_dim) = q - gen_poses.generalized_poses_with_time[j].gen_pose.joint_pos;
+            error.tail(state_dim) = q_dot - gen_poses.generalized_poses_with_time[j].gen_pose.joint_vel;
+
+        // Compute fit function
+            fit_f(i) += error.transpose()*error;
+            error_int += error;
+
+
+        // Search for alpha, beta and delta
+            int alpha=0;
+            int beta=0;
+            int delta=0;
+
+            for (int j=0; j<fit_f.size(); j++){
+                if (fit_f(j) < fit_f(alpha)){alpha = j;}
+                else if(fit_f(j) < fit_f(beta)){beta = j;}
+                else if(fit_f(j) < fit_f(delta)){delta = j;};
+            }
+
+            for (int j=0; j<number_of_wolves; j++){
+                Kp[i] = (Kp[alpha]+2*Kp[beta]+2*Kp[delta]-5*Kp[i])/4;
+                Kd[i] = (Kd[alpha]+2*Kd[beta]+2*Kd[delta]-5*Kd[i])/4;
+                Ki[i] = (Ki[alpha]+2*Ki[beta]+2*Ki[delta]-5*Ki[i])/4;
+            }
         }
     }
+
+    int alpha=0;
+    fit_f.minCoeff(&alpha);
+    std::vector<Eigen::VectorXd> pid_gains;
+    pid_gains[0] = Kp[alpha]; 
+    pid_gains[1] = Kd[alpha];
+    pid_gains[2] = Ki[alpha];
+
+    return pid_gains;
 }
-*/

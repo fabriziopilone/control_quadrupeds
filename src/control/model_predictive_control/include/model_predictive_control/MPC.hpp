@@ -23,6 +23,10 @@ struct GeneralizedPose {
     Eigen::VectorXd feet_vel = {};
     Eigen::VectorXd feet_pos = {};
 
+    // Joint position and velocity
+    Eigen::VectorXd joint_pos;
+    Eigen::VectorXd joint_vel;
+
     // List of feet names in contact with the ground
     std::vector<std::string> contact_feet_names;
 };
@@ -71,6 +75,8 @@ class MPC{
         int mpc_step_horizon;       // Number of step of the Model Predictive Control algorithm
         double dT;      // Sample time
         double mu;      // Friction coefficient
+
+        int number_of_wolves = 20;      // Number of particles for the tuning of the PID
 
         std::vector<std::string> task_request;      // Vector of task for the optimization
 };

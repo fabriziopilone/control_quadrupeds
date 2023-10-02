@@ -49,12 +49,12 @@ install(
     RUNTIME DESTINATION bin
 )
 
-add_executable(test1 test/test1.cpp)
-target_include_directories(test1 PUBLIC
+add_executable(test_MPC test/test_mpc.cpp)
+target_include_directories(test_MPC PUBLIC
     ${EIGEN3_INCLUDE_DIR}
 )
-target_link_libraries(test1 PUBLIC ${PROJECT_NAME})
-ament_target_dependencies(test1 PUBLIC Eigen3 hierarchical_optimization)
+target_link_libraries(test_MPC PUBLIC ${PROJECT_NAME})
+ament_target_dependencies(test_MPC PUBLIC Eigen3 hierarchical_optimization)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

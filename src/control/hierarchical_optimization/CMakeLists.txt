@@ -46,11 +46,11 @@ install(
 )
 
 
-add_executable(test1 test/test1.cpp)
-target_include_directories(test1 PUBLIC
-  ${EIGEN3_INCLUDE_DIR}
-)
-target_link_libraries(test1 PUBLIC ${PROJECT_NAME})
+#add_executable(test1 test/test1.cpp)
+#target_include_directories(test1 PUBLIC
+#  ${EIGEN3_INCLUDE_DIR}
+#)
+#target_link_libraries(test1 PUBLIC ${PROJECT_NAME})
 # ament_target_dependencies(test1 ${PROJECT_NAME})
 
 ####################
