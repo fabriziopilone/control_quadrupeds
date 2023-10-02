@@ -1,3 +1,6 @@
 [submodule "quadprog"]
 	path = quadprog
 	url = https://github.com/ddebenedittis/quadprog
+[submodule "src/robot/solo_description"]
+	path = src/robot/solo_description
+	url = https://github.com/ddebenedittis/solo_description.git
