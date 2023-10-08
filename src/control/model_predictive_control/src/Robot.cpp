@@ -6,7 +6,7 @@ Robot::Robot(){}
 Robot::Robot(std::string robot_name){
     this->robot_name = robot_name;
 
-    const std::string urdf_filename = std::string("robot/solo_description/urdf/solo12.urdf");
+    const std::string urdf_filename = std::string("../../src/robot/solo_description/urdf/solo12.urdf");
     this->robot_model = pinocchio::urdf::buildModel(urdf_filename, robot_model);    // Load the urdf model
     this->robot_data = pinocchio::Data(robot_model);    // Create data required by the algorithms
     this->state_dim = this->robot_model.nv;

@@ -534,7 +534,6 @@ std::vector<Eigen::VectorXd> MPC::tune_gains(Eigen::VectorXd q_, Eigen::VectorXd
 
         // Error computation
             error_prev = error;
-            std::cout <<"Errore precedente\n" <<error_prev <<"\n";
             error.head(state_dim) = q - gen_poses.generalized_poses_with_time[j].gen_pose.joint_pos;
             error.tail(state_dim) = q_dot - gen_poses.generalized_poses_with_time[j].gen_pose.joint_vel;
             std::cout <<"Error:\n" <<error <<"\n";
@@ -566,7 +565,7 @@ std::vector<Eigen::VectorXd> MPC::tune_gains(Eigen::VectorXd q_, Eigen::VectorXd
 
     int alpha=0;
     fit_f.minCoeff(&alpha);
-    std::vector<Eigen::VectorXd> pid_gains;
+    std::vector<Eigen::VectorXd> pid_gains(3);
     pid_gains[0] = Kp[alpha]; 
     pid_gains[1] = Kd[alpha];
     pid_gains[2] = Ki[alpha];
