@@ -43,7 +43,8 @@ class Robot{
 
     //Methods
     std::vector<Eigen::VectorXd> compute_dynamics(Eigen::VectorXd q, Eigen::VectorXd q_dot, Eigen::VectorXd tau, double dT);
-    void get_Jc(Eigen::MatrixXd& Jc);
+    void get_Jc(Eigen::MatrixXd& Jc, Eigen::VectorXd q);
+    void compute_terms(Eigen::VectorXd);
 
     private:
     std::string robot_name;
@@ -58,8 +59,8 @@ class Robot{
     double f_min = 40;      // ????????????
     double dT;
 
-    std::vector<std::string> ground_feet_names;
-    std::vector<std::string> feet_names = {"LF", "RF", "LH", "RH"};
+    std::vector<std::string> ground_feet_names = {"LF", "RF", "LH", "RH"};
+    std::vector<std::string> feet_names = {"FL_FOOT", "FR_FOOT", "HL_FOOT", "HR_FOOT"};
 
     Eigen::VectorXd q;
     Eigen::VectorXd q_dot;

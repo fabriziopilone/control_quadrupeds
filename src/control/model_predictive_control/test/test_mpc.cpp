@@ -31,7 +31,13 @@ int main(){
     gen_pose.feet_vel = {};
     gen_pose.feet_pos = {};
 
-    gen_pose.contact_feet_names = {"FL", "FR", "HL", "HR"};
+    gen_pose.joint_pos.resize(12);
+    gen_pose.joint_vel.resize(12);
+
+    gen_pose.joint_pos << 0.0, 0.3, -0.6, 0.0, 0.3, -0.6, 0.0, -0.3, 0.6, 0.0, -0.3, 0.6;
+    gen_pose.joint_vel << 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
+
+    gen_pose.contact_feet_names = {"FL_FOOT", "FR_FOOT", "HL_FOOT", "HR_FOOT"};
 
     GeneralizedPoseWithTime gen_pose_time;
     gen_pose_time.gen_pose = gen_pose;
@@ -46,5 +52,13 @@ int main(){
     std::vector<Eigen::VectorXd> sol(1);
     sol = mpc.solve_MPC(q_init, qdot_init, gen_poses_time);
 
-    std::cout <<"Soluzione MPC:\n" <<sol[0];
+    std::cout <<"Stampa di fine ottimizzazione coppie\n";
+
+    std::vector<Eigen::VectorXd> pid_gains(3);
+    pid_gains = mpc.tune_gains(q_init, qdot_init, gen_poses_time);
+    for (int i=0; i<gen_poses_time.generalized_poses_with_time.size(); i++){
+        std::cout <<"Pid gains: \n" <<pid_gains[i] <<"\n";
+    }
+
+
 }

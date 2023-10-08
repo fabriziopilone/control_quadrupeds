@@ -72,6 +72,7 @@ Eigen::VectorXd HO::solve_ho(){
     }
     
     task::Task temp;
+    int rows_A = task_vec[0].get_A().rows();
     int cols_A = task_vec[0].get_A().cols();
     int rows_D = task_vec[0].get_D().rows();
 
@@ -81,18 +82,27 @@ Eigen::VectorXd HO::solve_ho(){
     VectorXd v_opt_vec = VectorXd::Zero(rows_D);
     VectorXd z_opt = VectorXd::Zero(cols_A);
 
-    MatrixXd H(cols_A+rows_D, cols_A+rows_D);
-    VectorXd c(cols_A + rows_D);
+    MatrixXd H = MatrixXd::Zero(cols_A+rows_D, cols_A+rows_D);
+    VectorXd c = VectorXd::Zero(cols_A + rows_D);
     MatrixXd D_all = task_vec[0].get_D();
-    MatrixXd D_hat(rows_D+rows_D, rows_D+rows_D);
+    MatrixXd D_hat = MatrixXd::Zero(rows_D+rows_D, cols_A+rows_D);
 
     VectorXd f_all(rows_D);
-    VectorXd f_hat(rows_D+rows_D);
+    VectorXd f_hat = VectorXd::Zero(rows_D+rows_D);
+    int sol = 0;
+
+    /*
+    Eigen::MatrixXd A_p1 = MatrixXd::Zero(rows_A, cols_A);xd
+    Eigen::MatrixXd D_p1 = MatrixXd::Zero(rows_D, cols_A);
+    Eigen::VectorXd b_p1 = VectorXd::Zero(rows_A);
+    Eigen::VectorXd f_p1 = VectorXd::Zero(rows_D);
+    */
 
     for (int i=0; i<=size-1; i++){
         std::cout <<"Size: " << size <<"\n";
         std::cout <<"Indice i: " <<i <<"\n";
-        std::cout <<"Proiettore nel nullo Zp: " <<Z_p <<"\n";
+        std::cout <<"Proiettore nel nullo Zp:\n " <<Z_p <<"\n";
+        std::cout <<"Dimensione proiettore nel nullo:\n" <<Z_p.rows() << "  " <<Z_p.cols() <<"\n";
         temp.set_task(task_vec[i].get_A(), task_vec[i].get_b(), task_vec[i].get_D(), task_vec[i].get_f());
         MatrixXd A_p1 = temp.get_A();
         MatrixXd D_p1 = temp.get_D();
@@ -100,22 +110,31 @@ Eigen::VectorXd HO::solve_ho(){
         VectorXd f_p1 = temp.get_f();
         rows_D = D_p1.rows();
 
-        H.resize(cols_A+rows_D, cols_A+rows_D);
-        c.resize(cols_A+rows_D);
-        f_hat.resize(rows_D+rows_D);
+        std::cout <<"Dimensione A:\n" <<A_p1.rows() << "  " <<A_p1.cols() <<"\n";
+        std::cout <<"Dimensione b:\n" <<b_p1.rows() << "  " <<b_p1.cols() <<"\n";
+        std::cout <<"Dimensione D:\n" <<D_p1.rows() << "  " <<D_p1.cols() <<"\n";
+        std::cout <<"Dimensione f:\n" <<f_p1.rows() << "  " <<f_p1.cols() <<"\n";
+
+        H.conservativeResize(cols_A+rows_D, cols_A+rows_D);
+        c.conservativeResize(cols_A+rows_D);
+        f_hat.conservativeResize(rows_D+rows_D);
+
+        H.setZero();
+        c.setZero();
+        f_hat.setZero();
 
         // H MATRIX
         H.topLeftCorner(cols_A, cols_A) = Z_p.transpose()*A_p1.transpose()*A_p1*Z_p + temp.get_reg()*MatrixXd::Identity(cols_A, cols_A);
         H.bottomLeftCorner(rows_D, cols_A) = MatrixXd::Zero(rows_D, cols_A);
         H.topRightCorner(cols_A, rows_D) = MatrixXd::Zero(cols_A, rows_D);
         H.bottomRightCorner(rows_D, rows_D) = MatrixXd::Identity(rows_D, rows_D);
-        std::cout << "Matrice H: " <<H <<"\n";
-        std::cout <<"Regolarizzazione: " << temp.get_reg() <<"\n";
+        //std::cout << "Matrice H: " <<H <<"\n";
+        //std::cout <<"Regolarizzazione: " << temp.get_reg() <<"\n";
 
         // c VECTOR
         c.head(cols_A) = Z_p.transpose()*A_p1.transpose()*(A_p1*x_opt - b_p1);
         c.tail(rows_D) = VectorXd::Zero(rows_D);
-        std::cout << "Matrice c: " <<c <<"\n";
+        //std::cout << "Matrice c: " <<c <<"\n";
 
         // D MATRIX
         if (i==0){
@@ -127,25 +146,21 @@ Eigen::VectorXd HO::solve_ho(){
         else{
             int rows_Dall = D_all.rows();
             MatrixXd temp_D = D_all;
-            //MatrixXd Z_p_vec((i+1)*rows_A, rows_A);
-            //for (int j=0; j<=i; j++){
-            //    Z_p_vec << Z_p, Z_p;
-            //}
-            
-            //std::cout <<"Zp_vec: " <<Z_p_vec <<"\n";
             D_all.conservativeResize(rows_Dall+rows_D, NoChange);
             D_all.topRows(rows_D) = D_p1;
             D_all.bottomRows(rows_Dall) = temp_D;
 
-            D_hat.resize(D_all.rows()+rows_D, cols_A+rows_D);          
+            D_hat.conservativeResize(D_all.rows()+rows_D, cols_A+rows_D);
+            D_hat.setZero();
             D_hat.topLeftCorner(D_all.rows(), cols_A) = D_all*Z_p;
             D_hat.bottomLeftCorner(rows_D, cols_A) = MatrixXd::Zero(rows_D, cols_A);
-
+            /*
             MatrixXd temporanea(D_all.rows(), rows_D);
             temporanea << -MatrixXd::Identity(rows_D, rows_D), MatrixXd::Zero(D_all.rows()-rows_D, rows_D);
+            */
             D_hat.topRightCorner(D_all.rows(), rows_D) << -MatrixXd::Identity(rows_D, rows_D), MatrixXd::Zero(D_all.rows()-rows_D, rows_D);
             D_hat.bottomRightCorner(rows_D, rows_D) = -MatrixXd::Identity(rows_D, rows_D);
-            std::cout << "Matrice D_hat: " <<D_hat <<"\n";
+            //std::cout << "Matrice D_hat: " <<D_hat <<"\n";
         }   
 
         // f VECTOR
@@ -156,47 +171,57 @@ Eigen::VectorXd HO::solve_ho(){
             int rows_fall = f_all.rows();
             VectorXd temp_f = f_all;
             
-            f_all.resize(rows_fall+rows_D, NoChange);
+            f_all.conservativeResize(rows_fall+rows_D, NoChange);
+            f_all.setZero();
             f_all.head(rows_D) = f_p1;
             f_all.tail(rows_fall) = temp_f; 
         }
 
-        f_hat.resize(f_all.rows());
-        VectorXd x_opt_vec(D_all.rows());
-        //for (int j=0; j<=i; j++)
-        //    x_opt_vec = x_opt, x_opt;
-
         f_hat = f_all - D_all*x_opt;
 
         if (i != 0){
-            VectorXd v_ext(v_opt_vec.rows()+rows_D);
-            v_ext << VectorXd::Zero(rows_D), v_opt_vec;
-            f_hat = f_hat + v_ext;
+            VectorXd v_ext = VectorXd::Zero(v_opt_vec.rows()+rows_D);
+            v_ext.tail(v_opt_vec.rows()) = v_opt_vec;
+            f_hat = f_hat.eval() + v_ext;
         }
 
         f_hat.conservativeResize(f_all.rows()+rows_D);
         f_hat.tail(rows_D) = VectorXd::Zero(rows_D);
-        std::cout << "Matrice f_hat: " <<f_hat <<"\n";
+        //std::cout << "Matrice f_hat: " <<f_hat <<"\n";
 
         /*
         SOLVING QP PROBLEM
         */
+        xi_opt.conservativeResize(cols_A+rows_D);
+        xi_opt.setZero();
         c = -c.eval();
-        D_hat.transposeInPlace(); // solver solves for >=0
+        D_hat.transposeInPlace();
         D_hat = -D_hat.eval();
-        //f_hat = -f_hat.eval();
-       const int sol = solve_quadprog(H, c, D_hat, f_hat, xi_opt);
+        ////////f_hat = -f_hat.eval();
+        sol = solve_quadprog(
+        H, 
+        c, 
+        D_hat, 
+        f_hat, 
+        xi_opt,
+        0);
+
+       std::cout <<"Prova di stampa dopo chiamata a solve_quadprog\n";
         if (sol == 1) {
         std::cerr << "At priority " << i<< ", constraints are inconsistent, no solution." << '\n' << std::endl;
         } else if (sol == 2) {
         std::cerr << "At priority " << i << ", matrix G is not positive definite." << '\n' << std::endl;
          }
 
-         std::cout << "Vettore soluzione xi_opt: " <<xi_opt <<"\n";
+        std::cout <<"Dimensione vettore soluzione: \n" <<xi_opt.rows() <<"\n";
+        std::cout << "Vettore soluzione xi_opt: " <<xi_opt <<"\n";
 
-       z_opt = xi_opt(seq(0, cols_A-1));
-       x_opt = x_opt + Z_p*z_opt;
-       std::cout << "x_opt: " << x_opt <<"\n";
+       //z_opt = xi_opt(seq(0, cols_A-1));
+       z_opt = xi_opt.segment(0, cols_A);
+       std::cout <<"z_opt at step " << i<< " :\n" <<z_opt <<"\n";
+       Eigen::VectorXd x_temp = x_opt;
+       x_opt = x_temp.eval() + Z_p*z_opt;
+       std::cout << "x_opt at step " << i <<" :\n" << x_opt <<"\n";
 
        VectorXd v_temp = v_opt_vec;
        if(i != 0){
@@ -205,7 +230,7 @@ Eigen::VectorXd HO::solve_ho(){
             v_opt_vec.tail(v_temp.rows()) = v_temp;
        }
        else{v_opt_vec = xi_opt.tail(rows_D);}
-       std::cout <<"v_opt_vec: " <<v_opt_vec <<"\n";
+       std::cout <<"v_opt_vec at step " << i << " :\n" <<v_opt_vec <<"\n";
 
        // UPDATING NULL SPACE PROJECTOR
        /*
@@ -215,10 +240,10 @@ Eigen::VectorXd HO::solve_ho(){
        Null_AZp = MatrixXd::Identity(rows_A, rows_A) - pInv*M;
        Z_p = Z_p*Null_AZp;
        */
-       Z_p *= null_space_projector(A_p1*Z_p);
-       std::cout <<"Zp: " <<Z_p <<"\n";
-
+       Z_p = Z_p.eval() * null_space_projector(A_p1*Z_p.eval());
+       //std::cout <<"Zp: " <<Z_p <<"\n";
     }
+    std::cout <<"Stampa x_opt dopo il for:\n" <<x_opt <<"\n";
     return x_opt;
 };
 

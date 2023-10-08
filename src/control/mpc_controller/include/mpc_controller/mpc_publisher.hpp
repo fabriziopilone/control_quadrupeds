@@ -23,7 +23,7 @@ namespace mpc_controller{
             MPCPublisher();
             void publish_all(
                 Eigen::VectorXd joints_acceleration, Eigen::VectorXd torques, Eigen::Vector forces,
-                Eigen::VectorXd feet_position, Eigen::VectorXd feet_velocites
+                Eigen::VectorXd feet_position, Eigen::VectorXd feet_velocites, std::vector<Eigen::VectorXd> pid_gains
             );
 
         private:
@@ -35,6 +35,7 @@ namespace mpc_controller{
         rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr forces_publisher;
         rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr feet_position_publisher;
         rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr feet_velocities_publisher;
+        rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr pid_gains_publisher;
 
     };
 }

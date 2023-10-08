@@ -41,6 +41,7 @@ class MPCController : public controller_interface::ControllerInterface{
         Eigen::VectorXd q;
         Eigen::VectorXd v;
         std::vector<Eigen::VectorXd> tau;
+        std::vector<Eigen::VectorXd> pid_gains;
         GeneralizedPosesWithTime des_gen_poses;
         Eigen::VectorXd q_init;
 

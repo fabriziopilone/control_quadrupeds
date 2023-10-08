@@ -243,11 +243,14 @@ using hardware_interface::HW_IF_EFFORT;
         // ##############################################################
 
         this->tau = mpc.solve_MPC(q, v, des_gen_poses);
+        this->pid_gains = mpc.tune_gains(q, v, des_gen_poses);
 
         // Send effort command
         for (uint i=0; i<joint_names.size(); i++) {
             command_interfaces[i].set_value(tau[0](i));
         }
+
+        logger->publish_all()   // XXXXXXXXXX
 
         return controller_interface::return_type::OK;
     }

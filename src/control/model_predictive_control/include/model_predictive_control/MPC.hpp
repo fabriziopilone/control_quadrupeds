@@ -7,6 +7,7 @@
 #include "pinocchio/algorithm/crba.hpp"
 #include "pinocchio/algorithm/frames.hpp"
 #include "pinocchio/algorithm/aba-derivatives.hpp"
+#include "pinocchio/algorithm/jacobian.hpp"
 
 struct GeneralizedPose {
     // Base linear quantities
@@ -24,8 +25,8 @@ struct GeneralizedPose {
     Eigen::VectorXd feet_pos = {};
 
     // Joint position and velocity
-    Eigen::VectorXd joint_pos;
-    Eigen::VectorXd joint_vel;
+    Eigen::VectorXd joint_pos = {};
+    Eigen::VectorXd joint_vel = {};
 
     // List of feet names in contact with the ground
     std::vector<std::string> contact_feet_names;

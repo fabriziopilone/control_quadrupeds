@@ -36,7 +36,9 @@ class Task{
         }
 
         friend auto operator<<(std::ostream& os, Task const& m) -> std::ostream& { 
-            return os << m.A;
+            std::vector<Eigen::MatrixXd> task(4);
+            task = {m.A, m.b, m.D, m.f};
+            return os << "Matrice A:\n" <<m.A <<"\n" <<"Matrice b:\n" <<m.b <<"\nMatrice D:\n" <<m.D <<"\nMatrice f:\n" <<m.f;
         }
 
     private:

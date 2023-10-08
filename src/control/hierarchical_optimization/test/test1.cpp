@@ -151,4 +151,25 @@ int main(){
     std::cout <<"I_aug:\n" <<I_aug <<"\n";
     std::cout <<"La matrice diagonale a blocchi è:\n" << D <<"\n";
 
+
+    Eigen::MatrixXd A4(1,10);
+    Eigen::VectorXd b4(1);
+    Eigen::MatrixXd D4(1,10);
+    Eigen::VectorXd f4(1);
+
+    A4 << 0, 1, 0, 0, 0, 0, 0, 0, 0, 0;
+    b4 << 0;
+    D4 << 0, 1, 0, 0, 0, 0, 0, 0, 0, 0;
+    f4 << -20;
+
+    Task test4(A4, b4, D4, f4);
+
+    std::cout <<test4 << "\n";
+    Eigen::VectorXd x_opt4(10);
+    std::vector<Task> task_vector(1);
+    task_vector[0]=test4;
+    HO hier_opt1 = HO(task_vector, 1);
+    x_opt4 = hier_opt1.solve_ho();
+    std::cout << "Soluzione task 4 singolo: " << x_opt4 <<"\n";
+
 }
