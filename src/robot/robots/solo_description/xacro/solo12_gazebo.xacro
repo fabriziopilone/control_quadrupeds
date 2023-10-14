@@ -1,0 +1,205 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+    <xacro:macro name="ros2_control_joint" params="joint_name">
+        <joint name="${joint_name}">
+            <command_interface name="effort">
+                <param name="min">-20</param>
+                <param name="max"> 20</param>
+            </command_interface>
+            <state_interface name="position"/>
+            <state_interface name="velocity"/>
+            <state_interface name="effort"/>
+        </joint>
+    </xacro:macro>
+
+
+    <!-- ros2_control plugin -->
+    <ros2_control name="GazeboSystem" type="system">
+        <hardware>
+            <plugin>gazebo_ros2_control/GazeboSystem</plugin>
+        </hardware>
+
+        <xacro:ros2_control_joint joint_name="FL_HAA"></xacro:ros2_control_joint>
+        <xacro:ros2_control_joint joint_name="FL_HFE"></xacro:ros2_control_joint>
+        <xacro:ros2_control_joint joint_name="FL_KFE"></xacro:ros2_control_joint>
+        <xacro:ros2_control_joint joint_name="FR_HAA"></xacro:ros2_control_joint>
+        <xacro:ros2_control_joint joint_name="FR_HFE"></xacro:ros2_control_joint>
+        <xacro:ros2_control_joint joint_name="FR_KFE"></xacro:ros2_control_joint>
+        <xacro:ros2_control_joint joint_name="HL_HAA"></xacro:ros2_control_joint>
+        <xacro:ros2_control_joint joint_name="HL_HFE"></xacro:ros2_control_joint>
+        <xacro:ros2_control_joint joint_name="HL_KFE"></xacro:ros2_control_joint>
+        <xacro:ros2_control_joint joint_name="HR_HAA"></xacro:ros2_control_joint>
+        <xacro:ros2_control_joint joint_name="HR_HFE"></xacro:ros2_control_joint>
+        <xacro:ros2_control_joint joint_name="HR_KFE"></xacro:ros2_control_joint>
+
+        <sensor name="imu_sensor">
+            <state_interface name="orientation.x"/>
+            <state_interface name="orientation.y"/>
+            <state_interface name="orientation.z"/>
+            <state_interface name="orientation.w"/>
+            <state_interface name="angular_velocity.x"/>
+            <state_interface name="angular_velocity.y"/>
+            <state_interface name="angular_velocity.z"/>
+            <state_interface name="linear_acceleration.x"/>
+            <state_interface name="linear_acceleration.y"/>
+            <state_interface name="linear_acceleration.z"/>
+        </sensor>
+    </ros2_control>
+
+
+    <!-- Effort_controller -->
+    <gazebo>
+        <plugin filename="libgazebo_ros2_control.so" name="gazebo_ros2_control">
+            <parameters>$(find robot_control)/config/gazebo/solo12_controller_effort.yaml</parameters>
+        </plugin>
+    </gazebo>
+
+
+    <!-- IMU sensor -->
+    <gazebo reference="base_link">
+        <sensor name="imu_sensor" type="imu">
+            <always_on>true</always_on>
+            <update_rate>400</update_rate>
+            <!-- <plugin name="imu_plugin" filename="libgazebo_ros_imu_sensor.so">
+                <ros>
+                    <namespace>/imu</namespace>
+                    <remapping>~/out:=data</remapping>
+                </ros>
+                <frame_name>base</frame_name>
+                <initial_orientation_as_reference>false</initial_orientation_as_reference>
+            </plugin> -->
+
+            <imu>
+                <angular_velocity>
+                    <x>
+                        <noise type="gaussian">
+                        <mean>0.0</mean>
+                        <stddev>2e-4</stddev>
+                        <bias_mean>0.0000075</bias_mean>
+                        <bias_stddev>0.0000008</bias_stddev>
+                        </noise>
+                    </x>
+                    <y>
+                        <noise type="gaussian">
+                        <mean>0.0</mean>
+                        <stddev>2e-4</stddev>
+                        <bias_mean>0.0000075</bias_mean>
+                        <bias_stddev>0.0000008</bias_stddev>
+                        </noise>
+                    </y>
+                    <z>
+                        <noise type="gaussian">
+                        <mean>0.0</mean>
+                        <stddev>2e-4</stddev>
+                        <bias_mean>0.0000075</bias_mean>
+                        <bias_stddev>0.0000008</bias_stddev>
+                        </noise>
+                    </z>
+                </angular_velocity>
+                <linear_acceleration>
+                    <x>
+                        <noise type="gaussian">
+                        <mean>0.0</mean>
+                        <stddev>1.7e-2</stddev>
+                        <bias_mean>0.1</bias_mean>
+                        <bias_stddev>0.001</bias_stddev>
+                        </noise>
+                    </x>
+                    <y>
+                        <noise type="gaussian">
+                        <mean>0.0</mean>
+                        <stddev>1.7e-2</stddev>
+                        <bias_mean>0.1</bias_mean>
+                        <bias_stddev>0.001</bias_stddev>
+                        </noise>
+                    </y>
+                    <z>
+                        <noise type="gaussian">
+                        <mean>0.0</mean>
+                        <stddev>1.7e-2</stddev>
+                        <bias_mean>0.1</bias_mean>
+                        <bias_stddev>0.001</bias_stddev>
+                        </noise>
+                    </z>
+                </linear_acceleration>
+            </imu>
+        </sensor>
+    </gazebo>
+
+    <!-- Contact sensors for the four feet -->
+    <!-- LF_FOOT -->
+    <gazebo reference="FL_LOWER_LEG">
+        <sensor name="LF_FOOT_contct_sensor" type="contact">
+            <always_on>true</always_on>
+            <update_rate>25.0</update_rate>
+            <contact>
+                <!-- gz sdf -p turtlebot3_burger.urdf.xacro and look for the name of the desired collision element. -->
+                <collision>FL_LOWER_LEG_fixed_joint_lump__FL_FOOT_collision_1</collision>
+                <!-- <collision>FL_LOWER_LEG_collision</collision> -->
+            </contact>
+            <plugin name="LF_FOOT_bumper" filename="libgazebo_ros_bumper.so">
+                <ros>
+                    <!-- <namespace>demo</namespace> -->
+                    <remapping>bumper_states:=/contact_force_sensors/LF</remapping>
+                </ros>
+                <frame_name>world</frame_name>
+            </plugin>
+        </sensor>
+    </gazebo>
+    <!-- RF_FOOT -->
+    <gazebo reference="FR_LOWER_LEG">
+        <sensor name="RF_FOOT_contct_sensor" type="contact">
+            <always_on>true</always_on>
+            <update_rate>25.0</update_rate>
+            <contact>
+                <!-- gz sdf -p turtlebot3_burger.urdf.xacro and look for the name of the desired collision element. -->
+                <collision>FR_LOWER_LEG_fixed_joint_lump__FR_FOOT_collision_1</collision>
+            </contact>
+            <plugin name="RF_FOOT_bumper" filename="libgazebo_ros_bumper.so">
+                <ros>
+                    <!-- <namespace>demo</namespace> -->
+                    <remapping>bumper_states:=/contact_force_sensors/RF</remapping>
+                </ros>
+                <frame_name>world</frame_name>
+            </plugin>
+        </sensor>
+    </gazebo>
+    <!-- LH_FOOT -->
+    <gazebo reference="HL_LOWER_LEG">
+        <sensor name="LH_FOOT_contct_sensor" type="contact">
+            <always_on>true</always_on>
+            <update_rate>25.0</update_rate>
+            <contact>
+                <!-- gz sdf -p turtlebot3_burger.urdf.xacro and look for the name of the desired collision element. -->
+                <collision>HL_LOWER_LEG_fixed_joint_lump__HL_FOOT_collision_1</collision>
+            </contact>
+            <plugin name="LH_FOOT_bumper" filename="libgazebo_ros_bumper.so">
+                <ros>
+                    <!-- <namespace>demo</namespace> -->
+                    <remapping>bumper_states:=/contact_force_sensors/LH</remapping>
+                </ros>
+                <frame_name>world</frame_name>
+            </plugin>
+        </sensor>
+    </gazebo>
+    <!-- RH_FOOT -->
+    <gazebo reference="HR_LOWER_LEG">
+        <sensor name="RH_FOOT_contct_sensor" type="contact">
+            <always_on>true</always_on>
+            <update_rate>25.0</update_rate>
+            <contact>
+                <!-- gz sdf -p turtlebot3_burger.urdf.xacro and look for the name of the desired collision element. -->
+                <collision>HR_LOWER_LEG_fixed_joint_lump__HR_FOOT_collision_1</collision>
+            </contact>
+            <plugin name="RH_FOOT_bumper" filename="libgazebo_ros_bumper.so">
+                <ros>
+                    <!-- <namespace>demo</namespace> -->
+                    <remapping>bumper_states:=/contact_force_sensors/RH</remapping>
+                </ros>
+                <frame_name>world</frame_name>
+            </plugin>
+        </sensor>
+    </gazebo>
+
+</robot>

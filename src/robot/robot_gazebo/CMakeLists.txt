@@ -51,7 +51,7 @@ ament_environment_hooks("${CMAKE_CURRENT_SOURCE_DIR}/env-hooks/robot_gazebo.dsv.
 # ==============================================================================
 
 # Python modules
-# ament_python_install_package(${PROJECT_NAME})
+# ament_python_install_package(scripts)
 
 # Python executables
 install(PROGRAMS
