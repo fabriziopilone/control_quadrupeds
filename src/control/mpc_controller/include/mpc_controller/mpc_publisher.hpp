@@ -21,9 +21,12 @@ namespace mpc_controller{
 
         public:
             MPCPublisher();
+            //void publish_all(
+            //    Eigen::VectorXd joints_acceleration, Eigen::VectorXd torques, Eigen::Vector forces,
+            //    Eigen::VectorXd feet_position, Eigen::VectorXd feet_velocites, std::vector<Eigen::VectorXd> pid_gains
+            //);
             void publish_all(
-                Eigen::VectorXd joints_acceleration, Eigen::VectorXd torques, Eigen::Vector forces,
-                Eigen::VectorXd feet_position, Eigen::VectorXd feet_velocites, std::vector<Eigen::VectorXd> pid_gains
+                Eigen::VectorXd torques, std::vectorzEigen::VectorXd> pid_gains
             );
 
         private:

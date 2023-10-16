@@ -45,6 +45,7 @@ class Robot{
     std::vector<Eigen::VectorXd> compute_dynamics(Eigen::VectorXd q, Eigen::VectorXd q_dot, Eigen::VectorXd tau, double dT);
     void get_Jc(Eigen::MatrixXd& Jc, Eigen::VectorXd q);
     void compute_terms(Eigen::VectorXd);
+    Eigen::VectorXd click_alg(Eigen::VectorXd, pinocchio::Model, pinocchio::Data);
 
     private:
     std::string robot_name;

@@ -1,6 +1,9 @@
 #include "mpc_controller/mpc_controller.hpp"
 #include "mpc_controller/mpc_publisher.hpp"
 
+#include "hardware_interface/types/hardware_interface_type_values.hpp"
+#include "pluginlib/class_list_macros.hpp"
+
 namespace mpc_controller{
 
 using controller_interface::interface_configuration_type;
@@ -20,11 +23,12 @@ using hardware_interface::HW_IF_EFFORT;
 
             auto_declare<std::vector<double>>("q_init", std::vector<double>());
 
+            auto_declare<bool>("logging", bool());
             auto_declare<double>("tau_max", double());
             auto_declare<double>("tau_min", double());
             auto_declare<double>("f_max", double());
             auto_declare<double>("f_min", double());
-            auto_declare<souble>("mu", double());
+            auto_declare<double>("mu", double());
 
             // auto_declare<double>("reg", double());
 
@@ -56,6 +60,8 @@ using hardware_interface::HW_IF_EFFORT;
 
         const bool use_estimator = get_node()->get_parameter("use_estimator").as_bool();
 
+        this->logging = get_node()->get_parameter("logging").as_bool();
+        
         auto q_i = get_node()->get_parameter("q_init").as_double_array();
         if(q_i.size() != 12){
             RCLCPP_ERROR(get_node()->get_logger(), "q_init does not have 12 elements");
@@ -118,7 +124,7 @@ using hardware_interface::HW_IF_EFFORT;
                 [this](const gazebo_msgs::msg::LinkStates::SharedPtr msg)->void{
                     int base_id = -1;
 
-                    for(std::size_t i00; i<msg->name.size(); i++){
+                    for(std::size_t i=0; i<msg->name.size(); i++){
                         if(msg->name[i].size() >= 4){
                             if(msg->name[i].find("base") != std::string::npos){
                                 base_id = i;
@@ -136,8 +142,8 @@ using hardware_interface::HW_IF_EFFORT;
                     const geometry_msgs::msg::Vector3 lin = msg->twist[base_id].linear;
                     const geometry_msgs::msg::Vector3 ang = msg->twist[base_id].angular;
 
-                    this->q(7) << pos.x, pos.y, pos.z, orient.x, orient.y, orient.z, orient.w;
-                    this->q_dot(6) << lin.x, lin.y. lin.z, ang.x, ang.y, ang.z;
+                    this->q.head(7) << pos.x, pos.y, pos.z, orient.x, orient.y, orient.z, orient.w;
+                    this->q_dot.head(6) << lin.x, lin.y. lin.z, ang.x, ang.y, ang.z;
                 }
             );   
         }
@@ -205,7 +211,7 @@ using hardware_interface::HW_IF_EFFORT;
     InterfaceConfiguration MPCController::state_interface_configuration() const{
         InterfaceConfiguration state_interfaces_config;
         state_interfaces_config.type = interface_configuration_type::INDIVIDUAL;
-        for (const auto& joint : joint_names_) {
+        for (const auto& joint : this->joint_names) {
             state_interfaces_config.names.push_back(joint + "/" + HW_IF_POSITION);
             state_interfaces_config.names.push_back(joint + "/" + HW_IF_VELOCITY);
         }
@@ -238,19 +244,33 @@ using hardware_interface::HW_IF_EFFORT;
             this->v(i+6) = state_interfaces[2*i+1].get_value();
         }
         
-        // ##############################################################
-        // Skipped part on interpolation ???????
-        // ##############################################################
+        if (des_gen_pose_.contact_feet_names.size() + des_gen_pose_.feet_pos.size()/3 != 4) {
+        // The planner is not publishing messages yet. Interpolate from q0 to qi and than wait.
 
-        this->tau = mpc.solve_MPC(q, v, des_gen_poses);
-        this->pid_gains = mpc.tune_gains(q, v, des_gen_poses);
+        Eigen::VectorXd q = std::min(1., time.seconds() / this->init_time) * this->q_init;
+
+        // PD for the state estimator initialization
+        for (uint i=0; i<this->joint_names.size(); i++) {
+            command_interfaces_[i].set_value(
+                + (q[i] - this->q(i+7))
+                + (- this->v(i+6))
+            );
+        }
+
+    } else {
+        this->tau = mpc.solve_MPC(this->q, this->v, this->des_gen_poses);
+        this->pid_gains = mpc.tune_gains(this->q, this->v, this->des_gen_poses);
 
         // Send effort command
         for (uint i=0; i<joint_names.size(); i++) {
             command_interfaces[i].set_value(tau[0](i));
         }
 
-        logger->publish_all()   // XXXXXXXXXX
+        if(logging)
+            logger->publish_all(
+                tau[0], pid_gains
+            );   // XXXXXXXXXX
+        }
 
         return controller_interface::return_type::OK;
     }

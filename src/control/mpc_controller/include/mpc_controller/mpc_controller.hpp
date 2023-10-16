@@ -1,5 +1,8 @@
+#pragma once
+
 #include "controller_interface/controller_interface.hpp"
 #include "model_predictive_control/MPC.hpp"
+#include "mpc_controller/mpc_publisher.hpp"
 
 #include "gazebo_msgs/msg/link_states.hpp"
 #include "generalized_pose_msgs/msg/generalized_pose.hpp"
@@ -33,6 +36,7 @@ class MPCController : public controller_interface::ControllerInterface{
         CallbackReturn on_configure(const rclcpp_lifecycle::State& /*previous_state*/) override;
         CallbackReturn on_activate(const rclcpp_lifecycle::State& /*previous_state*/) override;
         CallbackReturn on_deactivate(const rclcpp_lifecycle::State& /*previous_state*/) override;
+    
     private:
         int mpc_step_horizon = 1;
         MPC mpc;
@@ -48,9 +52,15 @@ class MPCController : public controller_interface::ControllerInterface{
         // Subscriptions
         rclcpp::Subscription<gazebo_msgs::msg::LinkStates>::SharedPtr joint_state_subscription = nullptr;
         rclcpp::Subscription<generalized_pose_msgs::msg::GeneralizedPosesWithTime>::SharedPtr des_gen_poses_subscription = nullptr;
-        
+        rclcpp::Subscription<geometry_msgs::msg::Pose>::SharedPtr estimated_pose_subscription_ = nullptr;
+        rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr estimated_twist_subscription_ = nullptr;
+
+        bool logging = false;
+
         // Publishers
         std::shared_ptr<MPCPublisher> logger = nullptr;
 
-}
+        double init_time = 1;
+
+};
 }
