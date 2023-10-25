@@ -9,38 +9,6 @@
 #include "pinocchio/algorithm/aba-derivatives.hpp"
 #include "pinocchio/algorithm/jacobian.hpp"
 
-struct GeneralizedPose {
-    // Base linear quantities
-    Eigen::Vector3d base_acc = {0, 0, 0};
-    Eigen::Vector3d base_vel = {0, 0, 0};
-    Eigen::Vector3d base_pos = {0, 0, 0};
-
-    // Base angular quantities
-    Eigen::Vector3d base_angvel = {0, 0, 0};
-    Eigen::Vector4d base_quat = {0, 0, 0, 1};
-
-    // Swing feet linear quantities
-    Eigen::VectorXd feet_acc = {};
-    Eigen::VectorXd feet_vel = {};
-    Eigen::VectorXd feet_pos = {};
-
-    // Joint position and velocity
-    Eigen::VectorXd joint_pos = {};
-    Eigen::VectorXd joint_vel = {};
-
-    // List of feet names in contact with the ground
-    std::vector<std::string> contact_feet_names;
-};
-
-struct GeneralizedPoseWithTime{
-    GeneralizedPose gen_pose;
-    float time;
-};
-
-struct GeneralizedPosesWithTime{
-    std::vector<GeneralizedPoseWithTime> generalized_poses_with_time;
-};
-
 class MPC{
 
     public:
@@ -52,9 +20,11 @@ class MPC{
         int get_steps(){return this->mpc_step_horizon;};
         double get_dT(){return this->dT;};
         Robot get_robot(){return this->robot;};
+        std::vector<std::string> get_generic_feet_names(){return robot.get_feet_names();};
 
     // Setters
         void set_steps(int steps){this->mpc_step_horizon = steps;};
+        void set_mu(double mu){this->mu = mu;};
 
         std::vector<Eigen::VectorXd> solve_MPC(Eigen::VectorXd q, Eigen::VectorXd q_dot, GeneralizedPosesWithTime gen_poses);
         std::vector<Eigen::VectorXd> tune_gains(Eigen::VectorXd, Eigen::VectorXd, GeneralizedPosesWithTime);
@@ -62,10 +32,12 @@ class MPC{
     private:
     // Private methods
         std::vector<Task> create_tasks(std::vector<std::string>, GeneralizedPosesWithTime, Eigen::VectorXd, Eigen::VectorXd);
-        Task dynamic_constraint(pinocchio::Model, pinocchio::Data, Eigen::VectorXd, Eigen::VectorXd);
+        Task dynamic_constraint(GeneralizedPosesWithTime, pinocchio::Model, pinocchio::Data, Eigen::VectorXd, Eigen::VectorXd);
         Task torque_limits_constraint();
         Task contact_constraint();
         Task motion_tracking_constraint(GeneralizedPosesWithTime);
+        Task motion_tracking_base_constraint(GeneralizedPosesWithTime, Eigen::VectorXd, Eigen::VectorXd);
+        Task motion_tracking_swing_feet_constraint(GeneralizedPosesWithTime);
         Task friction_constraint(GeneralizedPosesWithTime);
         int resolveOption(std::string);
 

@@ -78,7 +78,7 @@ mpc_controller:
       - HR_KFE
 
       tau_max: 2.7
-      tau_min: -2.7
+      tau_min: 0.1
       mu: 0.6
       f_max: 15.
       f_min: 2.

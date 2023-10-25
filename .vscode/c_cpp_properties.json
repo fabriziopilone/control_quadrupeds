@@ -3,7 +3,9 @@
         {
             "name": "Linux",
             "includePath": [
-                "${workspaceFolder}/**",
+                "${workspaceFolder}/build/**",
+                "${workspaceFolder}/install/**",
+                "/opt/ros/humble/include/**",
                 "/usr/include/eigen3",
                 "/home/fabrizio/Scaricati/eigen-3.4.0"
             ],

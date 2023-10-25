@@ -4,8 +4,46 @@
 #include "pinocchio/algorithm/aba.hpp"
 #include "pinocchio/algorithm/frames.hpp"
 #include "pinocchio/algorithm/joint-configuration.hpp"
+#include "pinocchio/spatial/explog.hpp"
+#include "pinocchio/algorithm/kinematics.hpp"
+#include "pinocchio/algorithm/jacobian.hpp"
+#include "pinocchio/fwd.hpp"
+#include "pinocchio/algorithm/crba.hpp"
+#include "pinocchio/algorithm/rnea.hpp"
 
 #include <Eigen/Core>
+
+struct GeneralizedPose {
+    // Base linear quantities
+    Eigen::Vector3d base_acc = {0, 0, 0};
+    Eigen::Vector3d base_vel = {0, 0, 0};
+    Eigen::Vector3d base_pos = {0, 0, 0};
+
+    // Base angular quantities
+    Eigen::Vector3d base_angvel = {0, 0, 0};
+    Eigen::Vector4d base_quat = {0, 0, 0, 1};
+
+    // Swing feet linear quantities
+    Eigen::VectorXd feet_acc = {};
+    Eigen::VectorXd feet_vel = {};
+    Eigen::VectorXd feet_pos = {};
+
+    // Joint position and velocity
+    Eigen::VectorXd joint_pos = {};
+    Eigen::VectorXd joint_vel = {};
+
+    // List of feet names in contact with the ground
+    std::vector<std::string> contact_feet_names;
+};
+
+struct GeneralizedPoseWithTime{
+    GeneralizedPose gen_pose;
+    float time;
+};
+
+struct GeneralizedPosesWithTime{
+    std::vector<GeneralizedPoseWithTime> generalized_poses_with_time;
+};
 
 class Robot{
 
@@ -27,6 +65,7 @@ class Robot{
     double get_f_max(){return this->f_max;};
     double get_f_min(){return this->f_min;};
     std::vector<std::string> get_feet_names(){return this->feet_names;};
+    std::vector<std::string> get_short_feet_names(){return this->short_feet_names;};
 
     //Setters
     void set_q(Eigen::VectorXd q){this->q = q;};
@@ -43,9 +82,13 @@ class Robot{
 
     //Methods
     std::vector<Eigen::VectorXd> compute_dynamics(Eigen::VectorXd q, Eigen::VectorXd q_dot, Eigen::VectorXd tau, double dT);
-    void get_Jc(Eigen::MatrixXd& Jc, Eigen::VectorXd q);
+    void compute_second_order_FK(const Eigen::VectorXd& q, const Eigen::VectorXd& v);
+    void get_Jc(Eigen::MatrixXd& Jc, Eigen::VectorXd q, std::vector<std::string> ground_feet_names);
+    void get_Jb(Eigen::MatrixXd& Jb);
+    void get_Js(Eigen::MatrixXd& Js, std::vector<std::string>, std::vector<int>);
+    void compute_EOM(const Eigen::VectorXd& q, const Eigen::VectorXd& v);
     void compute_terms(Eigen::VectorXd);
-    Eigen::VectorXd click_alg(Eigen::VectorXd, pinocchio::Model, pinocchio::Data);
+    Eigen::VectorXd clik_alg(Eigen::VectorXd, GeneralizedPose, pinocchio::Model, pinocchio::Data);
 
     private:
     std::string robot_name;
@@ -54,13 +97,14 @@ class Robot{
 
     int state_dim;
     int contact_feet_dim = 4;  // 3 components of force for each leg
-    double tau_max = 80;   // ?????????????
-    double tau_min = -80;  // ?????????????
-    double f_max = 350;     // ???????????
-    double f_min = 40;      // ????????????
+    double tau_max = 2.7;   // ?????????????
+    double tau_min = -2.7;  // ?????????????
+    double f_max = 15.;     // ???????????
+    double f_min = 2.;      // ????????????
     double dT;
 
     std::vector<std::string> ground_feet_names = {"LF", "RF", "LH", "RH"};
+    std::vector<std::string> short_feet_names = {"LF", "RF", "LH", "RH"};
     std::vector<std::string> feet_names = {"FL_FOOT", "FR_FOOT", "HL_FOOT", "HR_FOOT"};
 
     Eigen::VectorXd q;

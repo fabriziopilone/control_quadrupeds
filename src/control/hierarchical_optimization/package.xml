@@ -11,6 +11,8 @@
 
   <build_depend>eigen</build_depend>
   <depend>quadprog</depend>
+  <depend>osqp</depend>
+  <depend>OsqpEigen</depend>
   
   <build_export_depend>eigen</build_export_depend> <!-- If your package uses Eigen3 in public headers, then also add these tags so downstream packages also depend on this package and Eigen3. -->
 

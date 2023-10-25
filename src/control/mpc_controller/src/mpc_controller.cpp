@@ -12,13 +12,14 @@ using hardware_interface::HW_IF_POSITION;
 using hardware_interface::HW_IF_VELOCITY;
 using hardware_interface::HW_IF_EFFORT;
 
-    MPCController::MPCController():mpc("solo12", 1.0/400){}
+    MPCController::MPCController():mpc("solo12", 1.0/400){std::cout <<"\n\n****************** Controller created ****************** \n\n" <<std::endl;}
     
     CallbackReturn MPCController::on_init(){
+    std::cout <<"\n\n******************** Starting on init ********************\n\n" <<std::endl;
         try{
             auto_declare<std::string>("robot_name", std::string());
             auto_declare<double>("sample_time", double());
-            auto_declare<std::vector<std::string>>("joints", std::vector<std::string>);
+            auto_declare<std::vector<std::string>>("joints", std::vector<std::string>());
             auto_declare<bool>("use_estimator", bool());
 
             auto_declare<std::vector<double>>("q_init", std::vector<double>());
@@ -34,12 +35,43 @@ using hardware_interface::HW_IF_EFFORT;
 
         }
         catch(const std::exception& e) {
-        fprintf(stderr,"Exception thrown during init stage with message: %s \n", e.what());
-        return CallbackReturn::ERROR;
+            fprintf(stderr,"Exception thrown during init stage with message: %s \n", e.what());
+            return CallbackReturn::ERROR;
+        }
+        std::cout <<"\n\n******************** Ending on init ********************\n\n" <<std::endl;
+        return CallbackReturn::SUCCESS;
     }
+
+    /* ===================== Command_interface_configuration ==================== */
+
+    InterfaceConfiguration MPCController::command_interface_configuration() const{
+        InterfaceConfiguration command_interfaces_config;
+        command_interfaces_config.type = interface_configuration_type::INDIVIDUAL;
+        for (const auto& joint : this->joint_names) {
+            command_interfaces_config.names.push_back(joint + "/" + HW_IF_EFFORT);
+        }
+
+        return command_interfaces_config;
+    }
+
+
+    /* ====================== State_interface_configuration ===================== */
+
+    InterfaceConfiguration MPCController::state_interface_configuration() const{
+        InterfaceConfiguration state_interfaces_config;
+        state_interfaces_config.type = interface_configuration_type::INDIVIDUAL;
+        for (const auto& joint : this->joint_names) {
+            state_interfaces_config.names.push_back(joint + "/" + HW_IF_POSITION);
+            state_interfaces_config.names.push_back(joint + "/" + HW_IF_VELOCITY);
+        }
+        
+        return state_interfaces_config;
     }
 
     CallbackReturn MPCController::on_configure(const rclcpp_lifecycle::State& /*previous_state*/){
+    
+    std::cout <<"\n\n******************** Starting on configure ********************\n\n";
+    
         const std::string robot_name = get_node()->get_parameter("robot_name").as_string();     //controller_interface_base::get_node() returns LifecycleNode
         if (robot_name.empty()){
             RCLCPP_ERROR(get_node()->get_logger(), "robot_name parameter is empty");
@@ -53,12 +85,14 @@ using hardware_interface::HW_IF_EFFORT;
         }
 
         this->joint_names = get_node()->get_parameter("joints").as_string_array();
-        if (joint_names.empty()){
+        if (this->joint_names.empty()){
             RCLCPP_ERROR(get_node()->get_logger(), "joints is empty");
             return CallbackReturn::ERROR;
         }
 
         const bool use_estimator = get_node()->get_parameter("use_estimator").as_bool();
+
+        auto_declare<double>("initialization_time", double());
 
         this->logging = get_node()->get_parameter("logging").as_bool();
         
@@ -68,33 +102,41 @@ using hardware_interface::HW_IF_EFFORT;
             return CallbackReturn::ERROR;
         }
         this->q_init = Eigen::VectorXd::Map(q_i.data(), q_i.size());
+        std::cout <<"q_init configure:\n" <<this->q_init <<"\n" <<std::endl;
 
 
 
         mpc = MPC(robot_name, dT);
 
         this->q.resize(mpc.get_robot().get_state_dim() + 1);
-        q(6) = 1;   // ????
+        q(6) = 1;
+        this->v.resize(mpc.get_robot().get_state_dim());
 
-        this->des_gen_pose_.feet_pos.resize(3);
-        this->des_gen_pose_.feet_vel.resize(3);
-        this->des_gen_pose_.feet_acc.resize(3);         // XXXXXXXXXXXXXXXXXXXXXXXXXX
-        this->des_gen_pose_.feet_pos.resize(0);
-        this->des_gen_pose_.feet_vel.resize(0);
-        this->des_gen_pose_.feet_acc.resize(0);
+        for (int i=0; i<des_gen_poses.generalized_poses_with_time.size(); i++) {
+            des_gen_poses.generalized_poses_with_time[i].gen_pose.feet_pos.resize(3);
+            des_gen_poses.generalized_poses_with_time[i].gen_pose.feet_vel.resize(3);
+            des_gen_poses.generalized_poses_with_time[i].gen_pose.feet_acc.resize(3);
+            des_gen_poses.generalized_poses_with_time[i].gen_pose.feet_pos.resize(0);
+            des_gen_poses.generalized_poses_with_time[i].gen_pose.feet_vel.resize(0);
+            des_gen_poses.generalized_poses_with_time[i].gen_pose.feet_acc.resize(0);
+        }
 
 
+        double tau_max = get_node()->get_parameter("tau_max").as_double();
         if (get_node()->get_parameter("tau_max").as_double() <= 0) {
             RCLCPP_ERROR(get_node()->get_logger(),"'tau_max' parameter is <= 0");
             return CallbackReturn::ERROR;
         }
-        mpc.get_robot().set_tau_max(get_node()->get_parameter("tau_max").as_double());
+        mpc.get_robot().set_tau_max(tau_max);
+        std::cout <<"tau_max robot: " <<mpc.get_robot().get_tau_max() <<"\n" <<std::endl;
+        std::cout <<"tau_max nodo: " <<tau_max <<"\n" <<std::endl;
 
-        if (get_node()->get_parameter("tau_min").as_double() <= 0) {
-            RCLCPP_ERROR(get_node()->get_logger(),"'tau_min' parameter is < 0");
+        if (get_node()->get_parameter("tau_min").as_double() <= -100.) {
+            RCLCPP_ERROR(get_node()->get_logger(),"'tau_min' parameter is too low");
             return CallbackReturn::ERROR;
         }
         mpc.get_robot().set_tau_min(get_node()->get_parameter("tau_min").as_double());
+        std::cout <<"tau_min robot: " <<mpc.get_robot().get_tau_min() <<"\n" <<std::endl;
     
         if (get_node()->get_parameter("mu").as_double() <= 0) {
             RCLCPP_ERROR(get_node()->get_logger(),"'mu' parameter is <= 0");
@@ -107,12 +149,14 @@ using hardware_interface::HW_IF_EFFORT;
             return CallbackReturn::ERROR;
         }
         mpc.get_robot().set_f_max(get_node()->get_parameter("f_max").as_double());
+        std::cout <<"f_max robot: " <<mpc.get_robot().get_f_max() <<"\n" <<std::endl;
         
         if (get_node()->get_parameter("f_min").as_double() <= 0) {
             RCLCPP_ERROR(get_node()->get_logger(),"'f_min' parameter is <= 0");
             return CallbackReturn::ERROR;
         }
         mpc.get_robot().set_f_min(get_node()->get_parameter("f_min").as_double());
+        std::cout <<"f_min robot: " <<mpc.get_robot().get_f_min() <<"\n" <<std::endl;
 
 
 
@@ -142,8 +186,10 @@ using hardware_interface::HW_IF_EFFORT;
                     const geometry_msgs::msg::Vector3 lin = msg->twist[base_id].linear;
                     const geometry_msgs::msg::Vector3 ang = msg->twist[base_id].angular;
 
+                    
                     this->q.head(7) << pos.x, pos.y, pos.z, orient.x, orient.y, orient.z, orient.w;
-                    this->q_dot.head(6) << lin.x, lin.y. lin.z, ang.x, ang.y, ang.z;
+                    this->v.head(6) << lin.x, lin.y, lin.z, ang.x, ang.y, ang.z;
+                    
                 }
             );   
         }
@@ -169,54 +215,111 @@ using hardware_interface::HW_IF_EFFORT;
             );
         }
     
-        desired_generalized_pose_subscription_ = get_node()->create_subscription<generalized_pose_msgs::msg::GeneralizedPosesWithTime>(
-        "/motion_planner/desired_generalized_poses", mpc.get_steps(),
-        [this](const generalized_pose_msgs::msg::GeneralizedPose::SharedPtr msg) -> void
+    /*
+        this->des_gen_poses_subscription = get_node()->create_subscription<generalized_pose_msgs::msg::GeneralizedPosesWithTime>(
+        "/motion_planner/desired_generalized_poses", 1,
+        [this](const generalized_pose_msgs::msg::GeneralizedPosesWithTime::SharedPtr msg) -> void
         {
             for (int i=0; i<mpc.get_steps(); i++){
-                this->des_gen_poses[i].base_acc << msg->base_acc.x, msg->base_acc.y, msg->base_acc.z;
-                this->des_gen_poses[i].base_vel << msg->base_vel.x, msg->base_vel.y, msg->base_vel.z;
-                this->des_gen_poses[i].base_pos << msg->base_pos.x, msg->base_pos.y, msg->base_pos.z;
+                this->des_gen_poses.generalized_poses_with_time[i].gen_pose.base_acc << msg->generalized_poses_with_time[i].generalized_pose.base_acc.x, msg->generalized_poses_with_time[i].generalized_pose.base_acc.y, msg->generalized_poses_with_time[i].generalized_pose.base_acc.z;
+                this->des_gen_poses.generalized_poses_with_time[i].gen_pose.base_vel << msg->generalized_poses_with_time[i].generalized_pose.base_vel.x, msg->generalized_poses_with_time[i].generalized_pose.base_vel.y, msg->generalized_poses_with_time[i].generalized_pose.base_vel.z;
+                this->des_gen_poses.generalized_poses_with_time[i].gen_pose.base_pos << msg->generalized_poses_with_time[i].generalized_pose.base_pos.x, msg->generalized_poses_with_time[i].generalized_pose.base_pos.y, msg->generalized_poses_with_time[i].generalized_pose.base_pos.z;
 
-                this->des_gen_poses[i].base_angvel << msg->base_angvel.x, msg->base_angvel.y, msg->base_angvel.z;
-                this->des_gen_poses[i].base_quat << msg->base_quat.x, msg->base_quat.y, msg->base_quat.z, msg->base_quat.w;
+                this->des_gen_poses.generalized_poses_with_time[i].gen_pose.base_angvel << msg->generalized_poses_with_time[i].generalized_pose.base_angvel.x, msg->generalized_poses_with_time[i].generalized_pose.base_angvel.y, msg->generalized_poses_with_time[i].generalized_pose.base_angvel.z;
+                this->des_gen_poses.generalized_poses_with_time[i].gen_pose.base_quat << msg->generalized_poses_with_time[i].generalized_pose.base_quat.x, msg->generalized_poses_with_time[i].generalized_pose.base_quat.y, msg->generalized_poses_with_time[i].generalized_pose.base_quat.z, msg->generalized_poses_with_time[i].generalized_pose.base_quat.w;
 
-                this->des_gen_poses[i].feet_acc = Eigen::VectorXd::Map(msg->feet_acc.data(), msg->feet_acc.size());
-                this->des_gen_poses[i].feet_vel = Eigen::VectorXd::Map(msg->feet_vel.data(), msg->feet_vel.size());
-                this->des_gen_poses[i].feet_pos = Eigen::VectorXd::Map(msg->feet_pos.data(), msg->feet_pos.size());
+                this->des_gen_poses.generalized_poses_with_time[i].gen_pose.feet_acc = Eigen::VectorXd::Map(msg->generalized_poses_with_time[i].generalized_pose.feet_acc.data(), msg->generalized_poses_with_time[i].generalized_pose.feet_acc.size());
+                this->des_gen_poses.generalized_poses_with_time[i].gen_pose.feet_vel = Eigen::VectorXd::Map(msg->generalized_poses_with_time[i].generalized_pose.feet_vel.data(), msg->generalized_poses_with_time[i].generalized_pose.feet_vel.size());
+                this->des_gen_poses.generalized_poses_with_time[i].gen_pose.feet_pos = Eigen::VectorXd::Map(msg->generalized_poses_with_time[i].generalized_pose.feet_pos.data(), msg->generalized_poses_with_time[i].generalized_pose.feet_pos.size());
 
-                this->des_gen_pose[i].contact_feet_names.assign(msg->contact_feet.data(), &msg->contact_feet[msg->contact_feet.size()]);
+                this->des_gen_poses.generalized_poses_with_time[i].gen_pose.contact_feet_names.assign(msg->generalized_poses_with_time[i].generalized_pose.contact_feet.data(), &msg->generalized_poses_with_time[i].generalized_pose.contact_feet[msg->generalized_poses_with_time[i].generalized_pose.contact_feet.size()]);
             }
         }
         );
+        */
 
-    return CallbackReturn::SUCCESS;
-    }
-
-    /* ===================== Command_interface_configuration ==================== */
-
-    InterfaceConfiguration MPCController::command_interface_configuration() const{
-        InterfaceConfiguration command_interfaces_config;
-        command_interfaces_config.type = interface_configuration_type::INDIVIDUAL;
-        for (const auto& joint : this->joint_names) {
-            command_interfaces_config.names.push_back(joint + "/" + HW_IF_EFFORT);
-        }
-
-        return command_interfaces_config;
-    }
-
-
-    /* ====================== State_interface_configuration ===================== */
-
-    InterfaceConfiguration MPCController::state_interface_configuration() const{
-        InterfaceConfiguration state_interfaces_config;
-        state_interfaces_config.type = interface_configuration_type::INDIVIDUAL;
-        for (const auto& joint : this->joint_names) {
-            state_interfaces_config.names.push_back(joint + "/" + HW_IF_POSITION);
-            state_interfaces_config.names.push_back(joint + "/" + HW_IF_VELOCITY);
-        }
+        // #############################################################################################################################
+        std::cout <<"mpc step:\n" <<mpc.get_steps() <<"\n" <<std::endl;
         
-        return state_interfaces_config;
+        this->des_gen_poses_subscription = get_node()->create_subscription<generalized_pose_msgs::msg::GeneralizedPose>(
+        "/motion_planner/desired_generalized_pose", 1,
+        [this](const generalized_pose_msgs::msg::GeneralizedPose::SharedPtr msg) -> void
+        {
+            std::cout <<"Prova di stampa on configure subscriber motion_planner\n" <<std::endl;
+            for (auto i=0; i<mpc.get_steps(); i++){
+
+                if(msg->feet_acc.empty()) std::cout <<"feet_acc empty\n" <<std::endl;
+
+                //this->des_gen_poses.generalized_poses_with_time[i].gen_pose.contact_feet_names.assign(msg->contact_feet.data(), &msg->contact_feet[msg->contact_feet.size()]);
+            
+                //####################################################################################################################################
+                GeneralizedPoseWithTime gen_pose;
+                gen_pose.gen_pose.base_acc << msg->base_acc.x, msg->base_acc.y, msg->base_acc.z;
+                //std::cout <<"Prova1\n" <<std::endl;
+                gen_pose.gen_pose.base_vel << msg->base_vel.x, msg->base_vel.y, msg->base_vel.z;
+                //std::cout <<"Prova2\n" <<std::endl;
+                gen_pose.gen_pose.base_pos << msg->base_pos.x, msg->base_pos.y, msg->base_pos.z;
+                //std::cout <<"Prova3\n" <<std::endl;
+                gen_pose.gen_pose.base_angvel << msg->base_angvel.x, msg->base_angvel.y, msg->base_angvel.z;
+                //std::cout <<"Prova4\n" <<std::endl;
+                gen_pose.gen_pose.base_quat << msg->base_quat.x, msg->base_quat.y, msg->base_quat.z, msg->base_quat.w;
+                //std::cout <<"Stampa1\n" <<std::endl;
+                gen_pose.gen_pose.feet_acc = Eigen::VectorXd::Map(msg->feet_acc.data(), msg->feet_acc.size());
+                //std::cout <<"Stampa2\n" <<std::endl;
+                gen_pose.gen_pose.feet_vel = Eigen::VectorXd::Map(msg->feet_vel.data(), msg->feet_vel.size());
+                //std::cout <<"Stampa3\n" <<std::endl;
+                gen_pose.gen_pose.feet_pos = Eigen::VectorXd::Map(msg->feet_pos.data(), msg->feet_pos.size());
+                //std::cout <<"Stampa4\n" <<std::endl;
+                gen_pose.gen_pose.contact_feet_names.assign(msg->contact_feet.data(), &msg->contact_feet[msg->contact_feet.size()]);
+
+                std::cout <<"contact_feet_names msg:\n" <<std::endl;
+                for(int k=0; k<gen_pose.gen_pose.contact_feet_names.size(); k++){
+                std::cout <<gen_pose.gen_pose.contact_feet_names[k] <<" " <<std::endl;
+                }
+
+                gen_pose.time = 0;
+
+                this->des_gen_poses.generalized_poses_with_time.push_back(gen_pose);
+
+                std::cout <<"Stampa piedi di contatto dopo l'inserimento nella struttura:\n" <<std::endl;
+                for (int k=0; k<des_gen_poses.generalized_poses_with_time[0].gen_pose.contact_feet_names.size(); k++) std::cout <<des_gen_poses.generalized_poses_with_time[0].gen_pose.contact_feet_names[k] <<"\n" <<std::endl;
+
+                std::cout <<"Valorizzazione struttura dati completata\n" <<std::endl;
+                //#################################################################################################################
+
+                /*
+                this->des_gen_poses.generalized_poses_with_time[i].gen_pose.base_acc << msg->base_acc.x, msg->base_acc.y, msg->base_acc.z;
+                std::cout <<"Prova1\n" <<std::endl;
+                this->des_gen_poses.generalized_poses_with_time[i].gen_pose.base_vel << msg->base_vel.x, msg->base_vel.y, msg->base_vel.z;
+                std::cout <<"Prova2\n" <<std::endl;
+                this->des_gen_poses.generalized_poses_with_time[i].gen_pose.base_pos << msg->base_pos.x, msg->base_pos.y, msg->base_pos.z;
+                std::cout <<"Prova3\n" <<std::endl;
+
+                this->des_gen_poses.generalized_poses_with_time[i].gen_pose.base_angvel << msg->base_angvel.x, msg->base_angvel.y, msg->base_angvel.z;
+                std::cout <<"Prova4\n" <<std::endl;
+                this->des_gen_poses.generalized_poses_with_time[i].gen_pose.base_quat << msg->base_quat.x, msg->base_quat.y, msg->base_quat.z, msg->base_quat.w;
+
+                std::cout <<"Stampa1\n" <<std::endl;
+                this->des_gen_poses.generalized_poses_with_time[i].gen_pose.feet_acc = Eigen::VectorXd::Map(msg->feet_acc.data(), msg->feet_acc.size());
+                std::cout <<"Stampa2\n" <<std::endl;
+                this->des_gen_poses.generalized_poses_with_time[i].gen_pose.feet_vel = Eigen::VectorXd::Map(msg->feet_vel.data(), msg->feet_vel.size());
+                std::cout <<"Stampa3\n" <<std::endl;
+                this->des_gen_poses.generalized_poses_with_time[i].gen_pose.feet_pos = Eigen::VectorXd::Map(msg->feet_pos.data(), msg->feet_pos.size());
+                std::cout <<"Stampa4\n" <<std::endl;
+
+                this->des_gen_poses.generalized_poses_with_time[i].gen_pose.contact_feet_names.assign(msg->contact_feet.data(), &msg->contact_feet[msg->contact_feet.size()]);
+                std::cout <<"End of des_gen_subscription\n" <<std::endl;
+                */
+            }
+        }
+        );
+        // #############################################################################################################################
+
+        if(logging){
+            logger = std::make_shared<MPCPublisher>();
+        }
+    std::cout <<"\n\n******************** Ending on configure ********************\n\n" <<std::endl;
+    return CallbackReturn::SUCCESS;
     }
 
     /* =============================== On_activate ============================== */
@@ -236,40 +339,68 @@ using hardware_interface::HW_IF_EFFORT;
 
     /* ============================== Update ==============================*/
 
-    CallbackReturn MPCController::update(const rclcpp::Time& time, const rclcpp::Duration& /*period*/){
+    controller_interface::return_type MPCController::update(const rclcpp::Time& time, const rclcpp::Duration& /*period*/){
+    
+        std::cout <<"\n\n******************* Spinning controller *******************\n\n";
+    
         std::vector<std::string> contact_feet_names = mpc.get_generic_feet_names();
 
+        std::cout <<"state_interface size:\n" <<state_interfaces_.size() <<"\n" <<std::endl;
         for (uint i=0; i<this->joint_names.size(); i++) {
-            this->q(i+7) = state_interfaces[2*i].get_value();
-            this->v(i+6) = state_interfaces[2*i+1].get_value();
+        	//std::cout <<"\n i: " <<i <<"\n" <<std::endl;
+            this->q(i+7) = state_interfaces_[2*i].get_value();
+            this->v(i+6) = state_interfaces_[2*i+1].get_value();
+            //std::cout <<"State interfaces[i]: " <<state_interfaces_[i].get_value() <<"\n" <<std::endl;
         }
+        //std::cout <<"q:\n " <<q <<"\n" <<std::endl;
+        //std::cout <<"v:\n " <<v <<"\n" <<std::endl;
         
-        if (des_gen_pose_.contact_feet_names.size() + des_gen_pose_.feet_pos.size()/3 != 4) {
+        
+        if (des_gen_poses.generalized_poses_with_time.empty()) {
         // The planner is not publishing messages yet. Interpolate from q0 to qi and than wait.
 
+        std::cout <<"\n\n******************* Entered if interpolate *******************\n\n" <<std::endl;
         Eigen::VectorXd q = std::min(1., time.seconds() / this->init_time) * this->q_init;
+        //Eigen::VectorXd q = Eigen::VectorXd::Zero(12);
+        //std::cout <<"q_init:\n" <<this->q_init <<"\n" <<std::endl;
+        //std::cout <<"q interpolato:\n" <<q <<"\n" <<std::endl;
 
         // PD for the state estimator initialization
         for (uint i=0; i<this->joint_names.size(); i++) {
             command_interfaces_[i].set_value(
-                + (q[i] - this->q(i+7))
-                + (- this->v(i+6))
+                + 5*(q[i] - this->q(i+7))
+                + 0.05*(- this->v(i+6))
+                //0
             );
+            std::cout <<"command interface[" <<i <<"]:\n" <<command_interfaces_[i].get_value() <<"\n" <<std::endl;
         }
-
+        //std::cout <<"*******************\n" <<std::endl;
+        //std::cout <<"End of if\n" <<std::endl;
+        
     } else {
+        
+        std::cout <<"\n\n******************* Entered else *******************\n\n" <<std::endl;
+        //std::cout <<Eigen::VectorXd::Map(des_gen_poses.generalized_poses_with_time[0].gen_pose.feet_acc.data(), des_gen_poses.generalized_poses_with_time[0].gen_pose.feet_acc.size()) <<"\n" <<std::endl;
+        //std::cout <<Eigen::VectorXd::Map(des_gen_poses.generalized_poses_with_time[0].gen_pose.feet_vel.data(), des_gen_poses.generalized_poses_with_time[0].gen_pose.feet_vel.size()) <<"\n" <<std::endl;
+        //std::cout <<Eigen::VectorXd::Map(des_gen_poses.generalized_poses_with_time[0].gen_pose.feet_pos.data(), des_gen_poses.generalized_poses_with_time[0].gen_pose.feet_pos.size()) <<"\n" <<std::endl;
         this->tau = mpc.solve_MPC(this->q, this->v, this->des_gen_poses);
-        this->pid_gains = mpc.tune_gains(this->q, this->v, this->des_gen_poses);
+        //this->pid_gains = mpc.tune_gains(this->q, this->v, this->des_gen_poses);
+        
+        Eigen::VectorXd prova_nulla = Eigen::VectorXd::Zero(12);
 
+	    std::cout <<"tau:\n" <<tau[0] <<"\n" <<std::endl;
         // Send effort command
         for (uint i=0; i<joint_names.size(); i++) {
-            command_interfaces[i].set_value(tau[0](i));
+            command_interfaces_[i].set_value(tau[0](i));
+            //command_interfaces_[i].set_value(prova_nulla(i));
         }
 
+    /*
         if(logging)
             logger->publish_all(
                 tau[0], pid_gains
             );   // XXXXXXXXXX
+            */
         }
 
         return controller_interface::return_type::OK;

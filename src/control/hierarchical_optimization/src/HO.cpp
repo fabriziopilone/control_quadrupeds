@@ -61,7 +61,7 @@ HO::HO(std::vector<task::Task> task_vec, int size){
     this->size = size;
 };
 
-Eigen::VectorXd HO::solve_ho(){
+Eigen::VectorXd HO::solve_ho(std::vector<std::string> task_names){
 
     if (size == 0)
         throw std::invalid_argument("The task vector must not be empty");
@@ -99,10 +99,9 @@ Eigen::VectorXd HO::solve_ho(){
     */
 
     for (int i=0; i<=size-1; i++){
-        std::cout <<"Size: " << size <<"\n";
-        std::cout <<"Indice i: " <<i <<"\n";
-        std::cout <<"Proiettore nel nullo Zp:\n " <<Z_p <<"\n";
-        std::cout <<"Dimensione proiettore nel nullo:\n" <<Z_p.rows() << "  " <<Z_p.cols() <<"\n";
+        std::cout <<"\n\n******************** Solving task " <<task_names[i] <<" ******************** \n\n";
+        //std::cout <<"Proiettore nel nullo Zp:\n " <<Z_p <<"\n";
+        //std::cout <<"Dimensione proiettore nel nullo:\n" <<Z_p.rows() << "  " <<Z_p.cols() <<"\n";
         temp.set_task(task_vec[i].get_A(), task_vec[i].get_b(), task_vec[i].get_D(), task_vec[i].get_f());
         MatrixXd A_p1 = temp.get_A();
         MatrixXd D_p1 = temp.get_D();
@@ -110,10 +109,10 @@ Eigen::VectorXd HO::solve_ho(){
         VectorXd f_p1 = temp.get_f();
         rows_D = D_p1.rows();
 
-        std::cout <<"Dimensione A:\n" <<A_p1.rows() << "  " <<A_p1.cols() <<"\n";
-        std::cout <<"Dimensione b:\n" <<b_p1.rows() << "  " <<b_p1.cols() <<"\n";
-        std::cout <<"Dimensione D:\n" <<D_p1.rows() << "  " <<D_p1.cols() <<"\n";
-        std::cout <<"Dimensione f:\n" <<f_p1.rows() << "  " <<f_p1.cols() <<"\n";
+        //std::cout <<"Dimensione A:\n" <<A_p1.rows() << "  " <<A_p1.cols() <<"\n";
+        //std::cout <<"Dimensione b:\n" <<b_p1.rows() << "  " <<b_p1.cols() <<"\n";
+        //std::cout <<"Dimensione D:\n" <<D_p1.rows() << "  " <<D_p1.cols() <<"\n";
+        //std::cout <<"Dimensione f:\n" <<f_p1.rows() << "  " <<f_p1.cols() <<"\n";
 
         H.conservativeResize(cols_A+rows_D, cols_A+rows_D);
         c.conservativeResize(cols_A+rows_D);
@@ -194,10 +193,11 @@ Eigen::VectorXd HO::solve_ho(){
         */
         xi_opt.conservativeResize(cols_A+rows_D);
         xi_opt.setZero();
+
         c = -c.eval();
         D_hat.transposeInPlace();
         D_hat = -D_hat.eval();
-        ////////f_hat = -f_hat.eval();
+        f_hat = -f_hat.eval();
         sol = solve_quadprog(
         H, 
         c, 
@@ -206,22 +206,22 @@ Eigen::VectorXd HO::solve_ho(){
         xi_opt,
         0);
 
-       std::cout <<"Prova di stampa dopo chiamata a solve_quadprog\n";
+       //std::cout <<"Prova di stampa dopo chiamata a solve_quadprog\n";
         if (sol == 1) {
-        std::cerr << "At priority " << i<< ", constraints are inconsistent, no solution." << '\n' << std::endl;
+        std::cerr << "At priority " << i<< ", corresponding to task " <<task_names[i] <<", constraints are inconsistent, no solution." << '\n' << std::endl;
         } else if (sol == 2) {
         std::cerr << "At priority " << i << ", matrix G is not positive definite." << '\n' << std::endl;
          }
 
-        std::cout <<"Dimensione vettore soluzione: \n" <<xi_opt.rows() <<"\n";
-        std::cout << "Vettore soluzione xi_opt: " <<xi_opt <<"\n";
+        //std::cout <<"Dimensione vettore soluzione: \n" <<xi_opt.rows() <<"\n";
+        //std::cout << "Vettore soluzione xi_opt: " <<xi_opt <<"\n";
 
        //z_opt = xi_opt(seq(0, cols_A-1));
        z_opt = xi_opt.segment(0, cols_A);
-       std::cout <<"z_opt at step " << i<< " :\n" <<z_opt <<"\n";
+       //std::cout <<"z_opt, of dimension " <<z_opt.rows()<<" at step " << i<< " :\n" <<z_opt <<"\n";
        Eigen::VectorXd x_temp = x_opt;
        x_opt = x_temp.eval() + Z_p*z_opt;
-       std::cout << "x_opt at step " << i <<" :\n" << x_opt <<"\n";
+       //std::cout << "x_opt at step " << i <<" :\n" << x_opt <<"\n";
 
        VectorXd v_temp = v_opt_vec;
        if(i != 0){
@@ -230,7 +230,7 @@ Eigen::VectorXd HO::solve_ho(){
             v_opt_vec.tail(v_temp.rows()) = v_temp;
        }
        else{v_opt_vec = xi_opt.tail(rows_D);}
-       std::cout <<"v_opt_vec at step " << i << " :\n" <<v_opt_vec <<"\n";
+       //std::cout <<"v_opt_vec at step " << i << " :\n" <<v_opt_vec <<"\n";
 
        // UPDATING NULL SPACE PROJECTOR
        /*
@@ -243,7 +243,7 @@ Eigen::VectorXd HO::solve_ho(){
        Z_p = Z_p.eval() * null_space_projector(A_p1*Z_p.eval());
        //std::cout <<"Zp: " <<Z_p <<"\n";
     }
-    std::cout <<"Stampa x_opt dopo il for:\n" <<x_opt <<"\n";
+    //std::cout <<"Stampa x_opt dopo il for:\n" <<x_opt <<"\n" <<std::endl;
     return x_opt;
 };
 

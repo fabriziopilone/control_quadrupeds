@@ -39,6 +39,9 @@ int main(){
 
     gen_pose.contact_feet_names = {"FL_FOOT", "FR_FOOT", "HL_FOOT", "HR_FOOT"};
 
+    //Eigen::VectorXd q = mpc.get_robot().clik_alg(q_init, gen_pose, mpc.get_robot().get_robot_model(), mpc.get_robot().get_robot_data());
+    //std::cout <<"q inverse:\n" <<q <<"\n" <<std::endl;
+
     GeneralizedPoseWithTime gen_pose_time;
     gen_pose_time.gen_pose = gen_pose;
     gen_pose_time.time = 0;

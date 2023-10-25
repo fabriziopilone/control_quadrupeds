@@ -13,19 +13,22 @@ namespace mpc_controller{
         this->forces_publisher = this->create_publisher<std_msgs::msg::Float64MultiArray>(
             "/logging/optimal_forces", this->mpc_step_horizon);
 
-        this->feet_position_publisher_ = this->create_publisher<std_msgs::msg::Float64MultiArray>(
+        this->feet_position_publisher = this->create_publisher<std_msgs::msg::Float64MultiArray>(
             "/logging/feet_position", this->mpc_step_horizon);
 
         this->feet_velocities_publisher = this->create_publisher<std_msgs::msg::Float64MultiArray>(
             "/logging/feet_velocities", this->mpc_step_horizon);
+            
+           std::cout <<"Prova stampa publisher\n";
 
-        this->pid_gains_publisher = this->create_publisher<std_msgs::msg::Float64MultiArray>(
-            "/logging/pid_gains", 1);
+        //this->pid_gains_publisher = this->create_publisher<std_msgs::msg::Float64MultiArray>(
+        //    "/logging/pid_gains", 1);
 
     }
 
+    /*
     void MPCPublisher::publish_all(
-        Eigen::VectorXd joints_acceleration, Eigen::VectorXd torques, Eigen::Vector forces,
+        Eigen::VectorXd joints_acceleration, Eigen::VectorXd torques, Eigen::VectorXd forces,
         Eigen::VectorXd feet_position, Eigen::VectorXd feet_velocites, std::vector<Eigen::VectorXd> pid_gains){
 
         auto message = std_msgs::msg::Float64MultiArray();
@@ -54,4 +57,18 @@ namespace mpc_controller{
         message.data = std::vector<Eigen::Vector>(pid_gains.data(), pid_gains.data()+pid_gains.size());
         this->pid_gains_publisher->publish(message);
     }
+    */
+
+   void MPCPublisher::publish_all(Eigen::VectorXd torques, std::vector<Eigen::VectorXd> pid_gains){
+    auto message = std_msgs::msg::Float64MultiArray();
+
+    // Publish torques
+        message.data = std::vector<double>(torques.data(), torques.data()+torques.size());
+        this->torques_publisher->publish(message);
+
+    // Publish PID gains
+        //message.data = std::vector<Eigen::Vector>(pid_gains.data(), pid_gains.data()+pid_gains.size());
+        //message.data = std::vector<double>(pid_gains.data(), pid_gains.data()+pid_gains.size());
+        //this->pid_gains_publisher->publish(message);
+   }
 }

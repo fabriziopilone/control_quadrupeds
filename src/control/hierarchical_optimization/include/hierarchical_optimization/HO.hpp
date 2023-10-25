@@ -9,7 +9,7 @@ class HO{
         HO(std::vector<task::Task> task_vec, int size);
 
         std::vector <task::Task> get_HO(){return this->task_vec;};
-        Eigen::VectorXd solve_ho();
+        Eigen::VectorXd solve_ho(std::vector<std::string> task_names={});
     
     private:
         Eigen::MatrixXd null_space_projector(const Eigen::MatrixXd&);

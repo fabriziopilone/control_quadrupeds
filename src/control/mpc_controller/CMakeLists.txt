@@ -34,9 +34,9 @@ set(PROJECT_DEPENDENCIES
 	sensor_msgs
 	model_predictive_control
 )
-add_library(&{PROJECT_NAME} SHARED src/mpc_controller.cpp src/mpc_publisher.cpp)
+add_library(${PROJECT_NAME} SHARED src/mpc_controller.cpp src/mpc_publisher.cpp)
 
-target_include_directories(&{PROJECT_NAME} PUBLIC
+target_include_directories(${PROJECT_NAME} PUBLIC
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 	$<INSTALL_INTERFACE:include/${PROJECT_NAME}>
 )
@@ -79,7 +79,7 @@ if(BUILD_TESTING)
   # comment the line when this package is in a git repo and when
   # a copyright and license is added to all source files
   set(ament_cmake_cpplint_FOUND TRUE)
-  ament_lint_auto_find_test_dependencies()
+  #ament_lint_auto_find_test_dependencies()
 endif()
 
 ament_package()

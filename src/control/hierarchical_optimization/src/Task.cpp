@@ -148,6 +148,7 @@ Eigen::VectorXd Task::solve_QP(){
     D_hat = -D_hat.eval();
     //f_hat = -f_hat.eval();
     const int sol = solve_quadprog(H, c_hat, D_hat, f_hat, x_opt);
+
     if (sol == 1)
         throw std::invalid_argument("Non feasible problem");
     return x_opt;

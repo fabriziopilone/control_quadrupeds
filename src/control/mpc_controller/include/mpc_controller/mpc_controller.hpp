@@ -14,6 +14,7 @@
 #include "rclcpp_lifecycle/node_interfaces/lifecycle_node_interface.hpp"
 #include "rclcpp_lifecycle/state.hpp"
 
+#include <stdio.h>
 namespace mpc_controller{
 
 // MPC CONTROLLER
@@ -42,20 +43,23 @@ class MPCController : public controller_interface::ControllerInterface{
         MPC mpc;
         std::vector<std::string> joint_names;
 
-        Eigen::VectorXd q;
-        Eigen::VectorXd v;
+        Eigen::VectorXd q = Eigen::VectorXd::Zero(12);
+        Eigen::VectorXd v = Eigen::VectorXd::Zero(12);
         std::vector<Eigen::VectorXd> tau;
         std::vector<Eigen::VectorXd> pid_gains;
+        GeneralizedPose des_gen_pose;
+        //std::vector<GeneralizedPose> des_gen_poses;
         GeneralizedPosesWithTime des_gen_poses;
-        Eigen::VectorXd q_init;
+        Eigen::VectorXd q_init = Eigen::VectorXd::Zero(12);
 
         // Subscriptions
         rclcpp::Subscription<gazebo_msgs::msg::LinkStates>::SharedPtr joint_state_subscription = nullptr;
-        rclcpp::Subscription<generalized_pose_msgs::msg::GeneralizedPosesWithTime>::SharedPtr des_gen_poses_subscription = nullptr;
+        //rclcpp::Subscription<generalized_pose_msgs::msg::GeneralizedPosesWithTime>::SharedPtr des_gen_poses_subscription = nullptr;
+        rclcpp::Subscription<generalized_pose_msgs::msg::GeneralizedPose>::SharedPtr des_gen_poses_subscription = nullptr;
         rclcpp::Subscription<geometry_msgs::msg::Pose>::SharedPtr estimated_pose_subscription_ = nullptr;
         rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr estimated_twist_subscription_ = nullptr;
 
-        bool logging = false;
+        bool logging = true;
 
         // Publishers
         std::shared_ptr<MPCPublisher> logger = nullptr;
