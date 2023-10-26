@@ -222,6 +222,7 @@ int MPC::resolveOption(std::string task_name){
     else return 100;
 }
 
+/*
 // PROVA DI RISCRITTURA DYNAMIC CONSTRAINT ***************************************************
 Task MPC::dynamic_constraint(GeneralizedPosesWithTime gen_poses, Model robot_model, Data data, Eigen::VectorXd q_, Eigen::VectorXd q_dot_){
     
@@ -243,14 +244,14 @@ Task MPC::dynamic_constraint(GeneralizedPosesWithTime gen_poses, Model robot_mod
     Eigen::MatrixXd ddq_dq = data.ddq_dq.topRows(6);
     Eigen::MatrixXd ddq_dv = data.ddq_dv.topRows(6);
 
-    Eigen::MatrixXd A0 = MatrixXd::Zero(13, dim_A);
-    Eigen::MatrixXd Bi = MatrixXd::Zero(13, input_dim);
+    Eigen::MatrixXd A0 = MatrixXd::Zero(12, dim_A);
+    Eigen::MatrixXd Bi = MatrixXd::Zero(12, input_dim);
     Eigen::MatrixXd Jc = MatrixXd::Zero(3*robot.get_contact_feet_dim(), v_dim);
     Eigen::MatrixXd S = MatrixXd::Zero(joint_dim, v_dim);
     S.rightCols(joint_dim).setIdentity();
 
-    Eigen::MatrixXd A = MatrixXd::Zero(12, dim_A+joint_dim+contact_forces_dim);
-    Eigen::VectorXd b = VectorXd::Zero(12);
+    Eigen::MatrixXd A = MatrixXd::Zero(13, dim_A+joint_dim+contact_forces_dim);
+    Eigen::VectorXd b = VectorXd::Zero(13);
     Eigen::MatrixXd D = MatrixXd::Zero(1, dim_A+joint_dim+contact_forces_dim);
     Eigen::VectorXd f = VectorXd::Zero(1);
 
@@ -291,7 +292,7 @@ Task MPC::dynamic_constraint(GeneralizedPosesWithTime gen_poses, Model robot_mod
     //Bi.topLeftCorner(v_dim, joint_dim) = data.Minv.rightCols(joint_dim);
     //Bi.bottomRightCorner(v_dim, contact_forces_dim) = data.Minv*Jc.transpose();
     Eigen::MatrixXd prova = data.Minv*Jc.transpose();   // 18x18 * 18*12 = 18*12
-    Bi.bottomRightCorner(6, joint_dim+contact_forces_dim) << data.Minv.block(0,6,7,joint_dim), prova.topRows(6);
+    Bi.bottomRightCorner(6, joint_dim+contact_forces_dim) << data.Minv.block(0,6,6,joint_dim), prova.topRows(6);
     std::cout <<"Bi\n" <<Bi <<std::endl;
     A.block(0, dim_A, 12, input_dim) = -Bi;
 
@@ -303,13 +304,14 @@ Task MPC::dynamic_constraint(GeneralizedPosesWithTime gen_poses, Model robot_mod
     //std::cout <<"\nDynamic constraint: \n" <<dynamic_constraints <<"\n" <<std::endl;
     return dynamic_constraints;
 }
+*/
 // *******************************************************************************************************************************************************
 
 // ##################################################################################################################################### 
 // #                                                     DYNAMIC CONSTRAINT                                                            #
 // #####################################################################################################################################
 
-/*
+
 Task MPC::dynamic_constraint(GeneralizedPosesWithTime gen_poses, Model robot_model, Data data, Eigen::VectorXd q_, Eigen::VectorXd q_dot_){
     /*
         x_(k+1) = A_k*x_k + B_k*u_k
@@ -325,10 +327,26 @@ Task MPC::dynamic_constraint(GeneralizedPosesWithTime gen_poses, Model robot_mod
                                            [u_(N-2)]    [  0  ]
 
         Dynamic: M(q,q_dot)*q_ddot + h(q, q_dot) = S'*tau + J_c'*fc
+
+        Relationship between derivative of quaternion and angular velocity:
+        quat = q0 + q1*i + q2*j + q3*k,        w = 0 + wx*i + wy*j + wz*k
+        quat = [q0, q1, q2, q3] (q0=scalar part), w = [0, wx, wy, wz]
+
+        quat_dot = 0.5 * W (*) quat   (*) = quaternion product
+
+        q0_dot = -0.5*(wx*q1+wy*q2+wz*q3)       [q0_dot]         [ q0 -q3  q2] [wx]
+        q1_dot = 0.5*(wx*q0-wy*q3+wz*q2)    =>  [q1_dot] =  0.5* [ q3  q0 -q1] [wy]
+        q2_dot = 0.5*(wy*q0-wz*q1+wx*q3)        [q2_dot]         [-q2  q1  q0] [wz]
+        q3_dot = 0.5*(wz*q0+wy*q1-wx*q2)        [q3_dot]         [-q1 -q2 -q3]
+
         
-            [  q  ]   [x1]             [x1_dot]   [q_dot ]   [                 x2                   ]   [f1(x, u)]
+                              [I    0   0] * [      v_b     ]
+        q_dot != v => q_dot = [0    Q   0]   [      w_b     ] = M*v
+                              [0    0   I]   [ q_dot_joints ]
+
+            [  q  ]   [x1]             [x1_dot]   [q_dot ]   [                M*x2                  ]   [f1(x, u)]
         x = [     ] = [  ]  -> x_dot = [      ] = [      ] = [                                      ] = [        ] = f(x, u)
-            [q_dot]   [x2]             [x2_dot]   [q_ddot]   [ Minv(x1,x2)*(S'*tau+Jc'*fc-h(x1,x2)) ]   [f2(x, u)]
+            [  v  ]   [x2]             [x2_dot]   [q_ddot]   [ Minv(x1,x2)*(S'*tau+Jc'*fc-h(x1,x2)) ]   [f2(x, u)]
 
         Linearizing around xc, uc
 
@@ -353,6 +371,7 @@ Task MPC::dynamic_constraint(GeneralizedPosesWithTime gen_poses, Model robot_mod
                     [Minv*S'    Minv*Jc']
 
         -> x_dot = A*x_hat + B*u_hat
+        */
     //  Ricordarsi di chiudere il commento qui
 
     int q_dim = robot.get_robot_model().nq;
@@ -373,6 +392,17 @@ Task MPC::dynamic_constraint(GeneralizedPosesWithTime gen_poses, Model robot_mod
     Eigen::VectorXd tau = this->robot.get_optimal_input()[0];
     //std::cout <<"Stampa tau\n" <<tau <<"\n" <<std::endl;
 
+    // Quaternion:  q = qw*1 + qx*i + qy*j + qz*k
+    auto qw = q(6);
+    auto qx = q(3);
+    auto qy = q(4);
+    auto qz = q(5);
+    Eigen::MatrixXd Q = Eigen::MatrixXd::Zero(4, 3);
+    Q.row(0) << qw, -qz, qy;
+    Q.row(1) << qz, qw, -qx;
+    Q.row(2) << -qy, qx, qw;
+    Q.row(3) << -qx, -qy, -qz;
+
     pinocchio::computeABADerivatives(robot_model, data, q, q_dot, tau);
     Eigen::MatrixXd ddq_dq = data.ddq_dq;    // Partial derivative of the joint acceleration vector with respect to the joint configuration.
     Eigen::MatrixXd ddq_dv = data.ddq_dv;    // Partial derivative of the joint acceleration vector with respect to the joint velocity.
@@ -390,7 +420,9 @@ Task MPC::dynamic_constraint(GeneralizedPosesWithTime gen_poses, Model robot_mod
     Eigen::MatrixXd D = MatrixXd::Zero(1, mpc_step_horizon*(dim_A+joint_dim+contact_forces_dim));
     Eigen::VectorXd f = VectorXd::Zero(1);
 
-    A0.topRightCorner(v_dim, v_dim) = MatrixXd::Identity(v_dim, v_dim);
+    A0.block(0, q_dim, 3, 3) = Eigen::MatrixXd::Identity(3,3);
+    A0.block(3, q_dim+3, 4, 3) = Q;
+    A0.block(7, q_dim+6, joint_dim, joint_dim) = Eigen::MatrixXd::Identity(joint_dim, joint_dim);
     A0.bottomLeftCorner(v_dim, v_dim) = ddq_dq;
     A0.bottomRightCorner(v_dim, v_dim) = ddq_dv;
     //std::cout <<"Stampa A0\n" <<A0 <<"\n" <<std::endl;
@@ -436,15 +468,24 @@ Task MPC::dynamic_constraint(GeneralizedPosesWithTime gen_poses, Model robot_mod
     std::vector<Eigen::VectorXd> joint_state_propagated(2);
     for (int j=0; j<mpc_step_horizon-1; j++){
         Ai.setZero();
+        Q.setZero();
         tau = robot.get_optimal_input()[j];
         joint_state_propagated = robot.compute_dynamics(q, q_dot, tau, dT);
         q = joint_state_propagated[0];
         q_dot = joint_state_propagated[1];
+
+        Q.row(0) << qw, -qz, qy;
+        Q.row(1) << qz, qw, -qx;
+        Q.row(2) << -qy, qx, qw;
+        Q.row(3) << -qx, -qy, -qz;
+
         pinocchio::computeABADerivatives(robot_model, data, q, q_dot, tau);
         ddq_dq = data.ddq_dq;
         ddq_dv = data.ddq_dv;
 
-        Ai.topRightCorner(v_dim, v_dim) = MatrixXd::Identity(joint_dim, joint_dim);
+        Ai.block(0, q_dim, 3, 3) = Eigen::MatrixXd::Identity(3,3);
+        Ai.block(3, q_dim+3, 4, 3) = Q;
+        Ai.block(7, q_dim+6, joint_dim, joint_dim) = Eigen::MatrixXd::Identity(joint_dim, joint_dim);
         Ai.bottomLeftCorner(v_dim, v_dim) = ddq_dq;
         Ai.bottomRightCorner(v_dim, v_dim) = ddq_dv; 
 
@@ -482,7 +523,6 @@ Task MPC::dynamic_constraint(GeneralizedPosesWithTime gen_poses, Model robot_mod
     //std::cout <<"\nDynamic constraint: \n" <<dynamic_constraints <<"\n" <<std::endl;
     return dynamic_constraints;
 }
-*/
 
 // ######################################################################################################################################
 //                                                    TORQUE LIMITS CONSTRAINT                                                          #
