@@ -19,10 +19,13 @@ D_p*(x* +Zp*z_(p+1) ) - f_p <= v*_p
 D_1*(x* + Zp*z_(p+1) ) - f_1 <= v*_1
 v_(p+1) >= 0
 
-Writing xi_p = [z_p; v_p] we can write
+
+Writing xi_p = [z_p; v_p] we can write:
+
 min_xi_(p+1) 0.5*xi_(p+1)' * H_(p+1) * xi_(p+1) + c_(p+1)' * xi_(p+1)
 subject to
 D_(p+1)^hat * xi_(p+1) <= f_(p+1)^hat
+
 with
 H_(p+1) = [Zp' * A_(p+1)' * A_(p+1) * Zp,     0;]
           [               0,                  I ]
@@ -190,19 +193,24 @@ Eigen::VectorXd HO::solve_ho(std::vector<std::string> task_names){
 
         /*
         SOLVING QP PROBLEM
+
+        quadprog solves the problem:
+        min 0.5 x' G x - g0' x
+        s.t Ci' x - ci >= 0
+        from which
+        G = H, g0 = -c, Ci = -D', ci = -f
         */
         xi_opt.conservativeResize(cols_A+rows_D);
         xi_opt.setZero();
 
-        c = -c.eval();
-        D_hat.transposeInPlace();
-        D_hat = -D_hat.eval();
-        f_hat = -f_hat.eval();
+        Eigen::VectorXd c_sol = -c;
+        Eigen::MatrixXd D_sol = -D_hat.transpose();
+        Eigen::VectorXd f_sol = -f_hat;
         sol = solve_quadprog(
         H, 
-        c, 
-        D_hat, 
-        f_hat, 
+        c_sol, 
+        D_sol, 
+        f_sol, 
         xi_opt,
         0);
 

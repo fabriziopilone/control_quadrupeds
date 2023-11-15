@@ -10,7 +10,7 @@ int main(){
     std::cout <<"Prova\n";
     double dT=1.0/400;
     std::string robot_name = "solo12";
-    MPC mpc(robot_name, dT);
+    MPC mpc(robot_name, dT, 1);
 
     Eigen::VectorXd q_init(12);
     q_init << 0.0, 0.3, -0.6, 0.0, 0.3, -0.6, 0.0, -0.3, 0.6, 0.0, -0.3, 0.6;

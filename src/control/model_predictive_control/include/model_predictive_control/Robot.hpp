@@ -59,6 +59,8 @@ class Robot{
     int get_contact_feet_dim(){return this->contact_feet_dim;};
     Eigen::VectorXd get_q(){return this->q;};
     Eigen::VectorXd get_qdot(){return this->q_dot;};
+    std::vector<Eigen::VectorXd> get_optimal_torques(){return this->optimal_torques;};
+    std::vector<Eigen::VectorXd> get_optimal_contact_forces(){return this->optimal_contact_forces;};
     std::vector<Eigen::VectorXd> get_optimal_input(){return this->optimal_input;};
     double get_tau_min(){return this->tau_min;};
     double get_tau_max(){return this->tau_max;};
@@ -75,7 +77,13 @@ class Robot{
         //this->contact_feet_dim = ground_feet_names.size();
         };
     void set_optimal_input(std::vector<Eigen::VectorXd> optimal_input){this->optimal_input = optimal_input;};
-    void set_tau_max(double tau_max){this->tau_max = tau_max;};
+    void set_optimal_torques(std::vector<Eigen::VectorXd> optimal_torques){this->optimal_torques = optimal_torques;};
+    void set_optimal_contact_forces(std::vector<Eigen::VectorXd> optimal_contact_forces){this->optimal_contact_forces = optimal_contact_forces;};
+    void set_optimal_actual_input(Eigen::VectorXd optimal_input){this->optimal_input[0] = optimal_input;};
+    void set_tau_max(double tau_max){
+        std::cout <<"Robot setting tau_max to " <<tau_max <<std::endl;
+        this->tau_max = tau_max;
+        };
     void set_tau_min(double tau_min){this->tau_min = tau_min;};
     void set_f_max(double f_max){this->f_max = f_max;};
     void set_f_min(double f_min){this->f_min = f_min;};
@@ -83,8 +91,8 @@ class Robot{
     //Methods
     std::vector<Eigen::VectorXd> compute_dynamics(Eigen::VectorXd q, Eigen::VectorXd q_dot, Eigen::VectorXd tau, double dT);
     void compute_second_order_FK(const Eigen::VectorXd& q, const Eigen::VectorXd& v);
-    void get_Jc(Eigen::MatrixXd& Jc, Eigen::VectorXd q, std::vector<std::string> ground_feet_names);
-    void get_Jb(Eigen::MatrixXd& Jb);
+    void get_Jc(Eigen::MatrixXd& Jc, Eigen::VectorXd q, std::vector<std::string> ground_feet_names, std::vector<int> contact_feet_index);
+    void get_Jb(Eigen::MatrixXd& Jb, Eigen::VectorXd q);
     void get_Js(Eigen::MatrixXd& Js, std::vector<std::string>, std::vector<int>);
     void compute_EOM(const Eigen::VectorXd& q, const Eigen::VectorXd& v);
     void compute_terms(Eigen::VectorXd);
@@ -97,7 +105,7 @@ class Robot{
 
     int state_dim;
     int contact_feet_dim = 4;  // 3 components of force for each leg
-    double tau_max = 2.7;   // ?????????????
+    double tau_max = 10;   // ?????????????
     double tau_min = -2.7;  // ?????????????
     double f_max = 15.;     // ???????????
     double f_min = 2.;      // ????????????
@@ -109,5 +117,7 @@ class Robot{
 
     Eigen::VectorXd q;
     Eigen::VectorXd q_dot;
+    std::vector<Eigen::VectorXd> optimal_torques;
+    std::vector<Eigen::VectorXd> optimal_contact_forces;
     std::vector<Eigen::VectorXd> optimal_input;
 };

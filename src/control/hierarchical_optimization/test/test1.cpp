@@ -102,7 +102,7 @@ int main(){
         std::cout <<i <<"\n";
     }
     task_vec = {test2};
-    VectorXd x_opt2(2);
+    VectorXd x_opt2;
     x_opt2 = ho.solve_ho();
     std::cout <<"Soluzione trovata: " <<x_opt2;
 

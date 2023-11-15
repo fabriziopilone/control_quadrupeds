@@ -66,37 +66,31 @@ void Robot::compute_second_order_FK(const Eigen::VectorXd& q, const Eigen::Vecto
     pinocchio::computeJointJacobiansTimeVariation(this->robot_model, this->robot_data, q, v);
 }
 
-void Robot::get_Jc(Eigen::MatrixXd& Jc, Eigen::VectorXd q, std::vector<std::string> ground_feet_names)
+void Robot::get_Jc(Eigen::MatrixXd& Jc, Eigen::VectorXd q, std::vector<std::string> ground_feet_names, std::vector<int> contact_feet_index)
 {
     // Initialize a temp Jacobian that must be used to store the contact jacobian of a contact foot.
     // Jc is the stack of J_temp of all the contact feet.
 
-    pinocchio::computeJointJacobians(robot_model, robot_data, q);
-    pinocchio::framesForwardKinematics(robot_model, robot_data, q);
+    //pinocchio::computeJointJacobians(robot_model, robot_data, q);
+    //pinocchio::framesForwardKinematics(robot_model, robot_data, q);
 
     Eigen::MatrixXd J_temp = MatrixXd::Zero(6, robot_model.nv);
 
     // Compute the stack of the contact Jacobians
     for (int i = 0; i < ground_feet_names.size(); i++) {
-        //std::cout <<"Stampa ground_feet_names\n" <<ground_feet_names[i] <<"\n";
         pinocchio::FrameIndex frame_id = robot_model.getFrameId(ground_feet_names[i]);
-        //std::cout <<"frame_id:\n" <<frame_id <<"\n";
-
         J_temp.setZero();
-
-        //std::cout <<"Existance frame:\n" << pinocchio::Model::existFrame(feet_names[i]);
-        
         pinocchio::getFrameJacobian(robot_model, robot_data, frame_id, pinocchio::LOCAL_WORLD_ALIGNED, J_temp);
-
-        //std::cout <<"J_temp:\n" <<J_temp <<"\n";
-
-        Jc.block(3*i, 0, 3, robot_model.nv) = J_temp.topRows(3);
+        Jc.block(3*contact_feet_index[i], 0, 3, robot_model.nv) = J_temp.topRows(3);
     }
 }
 
-void Robot::get_Jb(Eigen::MatrixXd& Jb)
+void Robot::get_Jb(Eigen::MatrixXd& Jb, Eigen::VectorXd q)
 {
-    //Jb.setZero();
+    Jb.setZero();
+
+    pinocchio::computeJointJacobians(robot_model, robot_data, q);
+    pinocchio::framesForwardKinematics(robot_model, robot_data, q);
 
     pinocchio::FrameIndex base_id = 1;
 
@@ -113,6 +107,7 @@ void Robot::get_Js(Eigen::MatrixXd& Js, std::vector<std::string> swing_feet_name
       // Compute the stack of the swing jacobians.
       for (size_t i = 0; i < swing_feet_names.size(); i++) {
           pinocchio::FrameIndex frame_id = robot_model.getFrameId(swing_feet_names[i]);
+          std::cout <<"frame_id dentro get_Js: " <<frame_id <<std::endl;
 
           J_temp.setZero();
           
@@ -120,6 +115,7 @@ void Robot::get_Js(Eigen::MatrixXd& Js, std::vector<std::string> swing_feet_name
 
           // swing_feet_index contains the indexes of the swing feet in the "feet_names" vector ex. index=0 => FL_FOOT
           int index = swing_feet_index[i];
+          std::cout <<"Index dentro get_Js: " <<index <<std::endl;
           Js.block(3*index, 0, 3, robot_model.nv) = J_temp.topRows(3);
       }
     }
