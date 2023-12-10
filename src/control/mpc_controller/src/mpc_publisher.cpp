@@ -4,6 +4,15 @@ namespace mpc_controller{
 
 // Constructor
     MPCPublisher::MPCPublisher() : Node("MPC_publisher"){
+        this->q_publisher = this->create_publisher<std_msgs::msg::Float64MultiArray>(
+            "/logging/q_opt", 1);
+
+        this->v_publisher = this->create_publisher<std_msgs::msg::Float64MultiArray>(
+            "logging/v_opt", 1);
+
+        this->des_base_state_publisher = this->create_publisher<std_msgs::msg::Float64MultiArray>(
+            "/logging/des_base_state", 1);
+
         this->joints_acceleration_publisher = this->create_publisher<std_msgs::msg::Float64MultiArray>(
             "/logging/optimal_joints_acceleration", this->mpc_step_horizon);
 
@@ -14,57 +23,48 @@ namespace mpc_controller{
             "/logging/optimal_forces", this->mpc_step_horizon);
 
         this->feet_position_publisher = this->create_publisher<std_msgs::msg::Float64MultiArray>(
-            "/logging/feet_position", this->mpc_step_horizon);
+            "/logging/feet_position", 1);
 
         this->feet_velocities_publisher = this->create_publisher<std_msgs::msg::Float64MultiArray>(
-            "/logging/feet_velocities", this->mpc_step_horizon);
+            "/logging/feet_velocities", 1);
             
-           std::cout <<"Prova stampa publisher\n";
 
         //this->pid_gains_publisher = this->create_publisher<std_msgs::msg::Float64MultiArray>(
         //    "/logging/pid_gains", 1);
 
     }
 
-    /*
-    void MPCPublisher::publish_all(
-        Eigen::VectorXd joints_acceleration, Eigen::VectorXd torques, Eigen::VectorXd forces,
-        Eigen::VectorXd feet_position, Eigen::VectorXd feet_velocites, std::vector<Eigen::VectorXd> pid_gains){
+   inline void MPCPublisher::publish_float64_multi_array(
+    const Eigen::VectorXd& vector,
+    const rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr publisher)
+{
+    auto message = std_msgs::msg::Float64MultiArray();
+    message.data = std::vector<double>(vector.data(), vector.data() + vector.size());
+    publisher->publish(message);
+}
 
-        auto message = std_msgs::msg::Float64MultiArray();
-
-        // Publish joint accelerations
-        message.data = std::vector<double>(joints_acceleration.data(), joints_acceleration.data() + joints_acceleration.size());
-        this->joints_acceleration_publisher->publish(message);
-
-        // Publish torques
-        message.data = std::vector<double>(torques.data(), torques.data()+)torques.size();
-        this->torques_publisher->publish(message);
-
-        // Publish forces
-        message.data = std::vector<double>(forces.data(), forces.data()+forces.size());
-        this->forces_publisher->publish(message);
-
-        // Publish feet position
-        message.data = std::vector<double>(feet_position.data(), feet_position.data()+feet_position.size());
-        this->feet_position_publisher->publish(message);
-
-        // Publish feet velocities
-        message.data = std::vector<double>(feet_velocites.data(), feet_velocites.data()+feet_velocites.size());
-        this->feet_velocities_publisher->publish(message);
-
-        // Publish PID gains
-        message.data = std::vector<Eigen::Vector>(pid_gains.data(), pid_gains.data()+pid_gains.size());
-        this->pid_gains_publisher->publish(message);
-    }
-    */
-
-   void MPCPublisher::publish_all(Eigen::VectorXd torques, std::vector<Eigen::VectorXd> pid_gains){
+   void MPCPublisher::publish_all(Eigen::VectorXd torques, std::vector<Eigen::VectorXd> pid_gains, Eigen::VectorXd q_opt, Eigen::VectorXd v_opt, Eigen::VectorXd des_base_state,
+   Eigen::VectorXd feet_positions, Eigen::VectorXd feet_velocities){
     auto message = std_msgs::msg::Float64MultiArray();
 
     // Publish torques
-        message.data = std::vector<double>(torques.data(), torques.data()+torques.size());
-        this->torques_publisher->publish(message);
+    publish_float64_multi_array(torques, torques_publisher);
+
+    // Publish q
+    publish_float64_multi_array(q_opt, q_publisher);
+
+    // Publish v
+    publish_float64_multi_array(v_opt, v_publisher);
+
+    // Publish des_base_state
+    publish_float64_multi_array(des_base_state, des_base_state_publisher);
+    
+    // Publish feet_positions
+    publish_float64_multi_array(feet_positions, feet_position_publisher);
+
+    // Publish feet velocities
+    publish_float64_multi_array(feet_velocities, feet_velocities_publisher);
+        
 
     // Publish PID gains
         //message.data = std::vector<Eigen::Vector>(pid_gains.data(), pid_gains.data()+pid_gains.size());

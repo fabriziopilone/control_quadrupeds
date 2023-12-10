@@ -102,7 +102,7 @@ Eigen::VectorXd HO::solve_ho(std::vector<std::string> task_names){
     */
 
     for (int i=0; i<=size-1; i++){
-        std::cout <<"\n\n******************** Solving task " <<task_names[i] <<" ******************** \n\n";
+        //std::cout <<"\n\n******************** Solving task " <<task_names[i] <<" ******************** \n\n";
         //std::cout <<"Proiettore nel nullo Zp:\n " <<Z_p <<"\n";
         //std::cout <<"Dimensione proiettore nel nullo:\n" <<Z_p.rows() << "  " <<Z_p.cols() <<"\n";
         temp.set_task(task_vec[i].get_A(), task_vec[i].get_b(), task_vec[i].get_D(), task_vec[i].get_f());
@@ -238,6 +238,8 @@ Eigen::VectorXd HO::solve_ho(std::vector<std::string> task_names){
             v_opt_vec.tail(v_temp.rows()) = v_temp;
        }
        else{v_opt_vec = xi_opt.tail(rows_D);}
+       //std::cout <<"Optimal torques at step " <<i <<" :\n" <<x_opt.segment(19+18, 12) <<std::endl;
+       //std::cout <<"Optimal contact forces at step " <<i <<" :\n" <<x_opt.segment(19+18+12, 12) <<std::endl;
        //std::cout <<"v_opt_vec at step " << i << " :\n" <<v_opt_vec <<"\n";
 
        // UPDATING NULL SPACE PROJECTOR

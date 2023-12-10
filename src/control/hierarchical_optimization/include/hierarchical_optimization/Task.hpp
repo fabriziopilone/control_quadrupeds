@@ -46,6 +46,6 @@ class Task{
         Eigen::VectorXd b;
         Eigen::MatrixXd D;
         Eigen::VectorXd f;
-        double reg = 1e-06;
+        double reg = 1e-10;
 };
 }
